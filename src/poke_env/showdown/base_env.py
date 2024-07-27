@@ -6,6 +6,7 @@ from typing import Any, Dict, Optional, Tuple
 import numpy as np
 import numpy.typing as npt
 from gymnasium import Env
+from gymnasium.spaces import Discrete, Space
 
 from poke_env.environment import Battle
 from poke_env.showdown.base_player import BasePlayer
@@ -22,10 +23,16 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     def __init__(
         self, username: str, password: Optional[str], env_player: BasePlayer, battle_format: str
     ):
+        self.observation_space = self.describe_embedding()
+        self.action_space = Discrete(26)  # type: ignore
         self.agent = BasePlayer(username, password)
         self.env_player = env_player
         self.battle_format = battle_format
         self.logger = logging.getLogger(f"{username}-env")
+
+    @abstractmethod
+    def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
+        pass
 
     @abstractmethod
     def get_reward(self, battle: Battle) -> float:
