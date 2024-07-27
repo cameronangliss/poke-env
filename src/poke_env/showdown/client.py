@@ -1,4 +1,5 @@
 import logging
+import threading
 import time
 from enum import Enum, auto
 from typing import Any, List, Optional
@@ -34,13 +35,13 @@ class Client:
         self.room = None
         self.queue = []
 
-        def on_message(ws: WebSocket, message: str):
+        def on_message(_: WebSocket, message: str):
             self.queue.append(message)
 
         self.websocket = WebSocketApp(
             "ws://localhost:8000/showdown/websocket", on_message=on_message
         )
-        self.websocket.run_forever()  # type: ignore
+        threading.Thread(target=self.websocket.run_forever).start()  # type: ignore
 
     def send_message(self, message: str):
         room_str = self.room or ""
