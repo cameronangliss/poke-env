@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 from abc import abstractmethod
-from logging import Logger
+import logging
 
 import numpy as np
 import numpy.typing as npt
@@ -16,7 +16,7 @@ from poke_env.showdown.client import Client, MessageType
 class BasePlayer(Client):
     username: str
     password: str
-    logger: Logger
+    logger: logging.Logger
     room: str | None
 
     def __init__(self, username: str, password: str):
@@ -130,10 +130,11 @@ class BasePlayer(Client):
             state.parse_message(protocol)
         else:
             battle_tag = "-".join(split_message)[1:]
+            logger = logging.getLogger(battle_tag)
             state = Battle(
                 battle_tag=battle_tag,
                 username=self.username,
-                logger=self.logger,
+                logger=logger,
                 gen=9,
             )
             state.parse_request(request or {})

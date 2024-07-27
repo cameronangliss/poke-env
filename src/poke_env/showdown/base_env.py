@@ -25,12 +25,6 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         self.agent = BasePlayer(username, password)
         self.env_player = env_player
         self.battle_format = battle_format
-        logging.basicConfig(
-            filename="debug.log",
-            filemode="w",
-            format="%(name)s %(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(funcName)s()\n%(message)s\n",
-            level=logging.INFO,
-        )
         self.logger = logging.getLogger(f"{username}-env")
 
     @abstractmethod
@@ -95,9 +89,9 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         await self.env_player.choose(env_player_action)
         next_state = await self.agent.observe(self.agent_battle)
         next_obs = self.agent.encode_battle(next_state)
-        self.state = await self.env_player.observe(self.state)
+        self.env_player_battle = await self.env_player.observe(self.env_player_battle)
         reward = self.__get_reward(next_state)
-        terminated = False
+        terminated = self.agent_battle.finished
         truncated = False
         return next_obs, reward, terminated, truncated, {}
 
@@ -107,3 +101,6 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     async def async_close(self):
         await self.agent.close()
         await self.env_player.close()
+        # resetting logger
+        for handler in logging.getLogger().handlers:
+            logging.getLogger().removeHandler(handler)
