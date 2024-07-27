@@ -28,7 +28,7 @@ class BasePlayer(Client):
         pass
 
     @abstractmethod
-    def encode_battle(self, battle: Battle) -> npt.NDArray[np.float32]:
+    def embed_battle(self, battle: Battle) -> npt.NDArray[np.float32]:
         pass
 
     async def setup(self):

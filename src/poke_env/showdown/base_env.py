@@ -70,7 +70,8 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         await self.env_player.join(room)
         self.agent_battle = await self.agent.observe()
         self.env_player_battle = await self.env_player.observe()
-        return self.agent.encode_battle(self.agent_battle), {}
+        obs = self.agent.embed_battle(self.agent_battle)
+        return obs, {}
 
     def step(
         self,
@@ -88,12 +89,11 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         env_player_action = self.env_player.get_action(self.env_player_battle)
         await self.env_player.choose(env_player_action)
         self.agent_battle = await self.agent.observe(self.agent_battle)
-        next_obs = self.agent.encode_battle(self.agent_battle)
         self.env_player_battle = await self.env_player.observe(self.env_player_battle)
+        next_obs = self.agent.embed_battle(self.agent_battle)
         reward = self.get_reward(self.agent_battle)
         terminated = self.agent_battle.finished
-        truncated = False
-        return next_obs, reward, terminated, truncated, {}
+        return next_obs, reward, terminated, False, {}
 
     def close(self):
         asyncio.run(self.async_close())
