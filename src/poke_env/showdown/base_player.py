@@ -139,7 +139,7 @@ class BasePlayer(Client):
                 gen=9,
             )
             battle.parse_request(request or {})
-            battle.parse_message(split_message)
+            battle.parse_message(protocol)
         return battle
 
     def choose(self, action: int | None):
