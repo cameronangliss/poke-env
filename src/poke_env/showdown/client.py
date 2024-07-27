@@ -40,6 +40,7 @@ class Client:
         self.websocket = WebSocketApp(
             "ws://localhost:8000/showdown/websocket", on_message=on_message
         )
+        self.websocket.run_forever()  # type: ignore
 
     def send_message(self, message: str):
         room_str = self.room or ""
