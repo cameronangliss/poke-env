@@ -29,6 +29,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         self.env_player = env_player
         self.battle_format = battle_format
         self.logger = logging.getLogger(f"{username}-env")
+        asyncio.run(self.setup())
 
     @abstractmethod
     def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
