@@ -47,9 +47,9 @@ class BasePlayer(Client):
         if self.password is None:
             assertion = ""
         else:
-            split_message = self.find_message(MessageType.LOGIN)
-            client_id = split_message[2]
-            challstr = split_message[3]
+            split_messages = self.find_message(MessageType.LOGIN)
+            client_id = split_messages[0][2]
+            challstr = split_messages[0][3]
             response = requests.post(
                 "https://play.pokemonshowdown.com/api/login",
                 {
@@ -67,13 +67,13 @@ class BasePlayer(Client):
         # The first games message is always empty, so this is here to pass by that message.
         self.find_message(MessageType.GAMES)
         try:
-            split_message = self.find_message(MessageType.GAMES, timeout=0.1)
+            split_messages = self.find_message(MessageType.GAMES, timeout=0.1)
         except TimeoutError:
             self.logger.info(
                 "Second updatesearch message not received. This should mean the user just logged in."
             )
         else:
-            games = json.loads(split_message[2])["games"]
+            games = json.loads(split_messages[0][2])["games"]
             if games:
                 Battlerooms = list(games.keys())
                 prev_room = self.room
@@ -107,8 +107,8 @@ class BasePlayer(Client):
         self.send_message(f"/accept {opponent.username}")
         # The first games message is always empty, so this is here to pass by that message.
         self.find_message(MessageType.GAMES)
-        split_message = self.find_message(MessageType.GAMES)
-        games = json.loads(split_message[2])["games"]
+        split_messages = self.find_message(MessageType.GAMES)
+        games = json.loads(split_messages[0][2])["games"]
         room = list(games.keys())[0]
         return room
 
@@ -120,17 +120,15 @@ class BasePlayer(Client):
         self.send_message("/timer on")
 
     def observe(self, battle: Battle | None = None) -> Battle:
-        split_message = self.find_message(MessageType.OBSERVE)
-        if split_message[1] == "request":
-            request = json.loads(split_message[2])
+        split_messages = self.find_message(MessageType.OBSERVE)
+        if len(split_messages[1]) == 3 and split_messages[1][1] == "request":
+            request = json.loads(split_messages[1][2])
             protocol = self.find_message(MessageType.OBSERVE)
         else:
             request = None
-            protocol = split_message
-        if battle:
-            battle.parse_message(protocol)
-        else:
-            battle_tag = "-".join(split_message)[1:]
+            protocol = split_messages
+        if not battle:
+            battle_tag = split_messages[0][0][1:]
             logger = logging.getLogger(battle_tag)
             battle = Battle(
                 battle_tag=battle_tag,
@@ -138,8 +136,11 @@ class BasePlayer(Client):
                 logger=logger,
                 gen=9,
             )
-            battle.parse_request(request or {})
-            battle.parse_message(protocol)
+        if request is not None:
+            battle.parse_request(request)
+        for message in protocol[1:]:
+            if message[1] not in ["", "t:"]:
+                battle.parse_message(message)
         return battle
 
     def choose(self, action: int | None):
