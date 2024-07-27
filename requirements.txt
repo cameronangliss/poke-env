@@ -3,4 +3,5 @@ numpy
 orjson
 requests
 tabulate
+websocket-client
 websockets>=8.0

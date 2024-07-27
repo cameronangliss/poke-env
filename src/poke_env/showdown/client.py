@@ -1,9 +1,9 @@
-import asyncio
 import logging
+import time
 from enum import Enum, auto
 from typing import Any, List, Optional
 
-import websockets.client as ws
+from websocket import WebSocket, WebSocketApp
 
 
 class PopupError(Exception):
@@ -25,47 +25,44 @@ class Client:
     username: str
     logger: logging.Logger
     room: Optional[str]
-    websocket: Optional[ws.WebSocketClientProtocol]
+    websocket: WebSocketApp
+    queue: List[str]
 
     def __init__(self, username: str):
         self.username = username
         self.logger = logging.getLogger(username)
         self.room = None
-        self.websocket = None
+        self.queue = []
 
-    async def connect(self):
-        while True:
-            try:
-                self.websocket = await ws.connect(
-                    "ws://localhost:8000/showdown/websocket"
-                )
-                break
-            except (ConnectionRefusedError, TimeoutError):
-                self.logger.error("Connection attempt failed, retrying now")
-                await asyncio.sleep(10)
+        def on_message(ws: WebSocket, message: str):
+            self.queue.append(message)
 
-    async def send_message(self, message: str):
+        self.websocket = WebSocketApp(
+            "ws://localhost:8000/showdown/websocket", on_message=on_message
+        )
+
+    def send_message(self, message: str):
         room_str = self.room or ""
         message = f"{room_str}|{message}"
         self.logger.info(message)
-        if self.websocket:
-            await self.websocket.send(message)
-        else:
-            raise ConnectionError("Cannot send message without established websocket")
+        self.websocket.send(message)
 
-    async def receive_message(self) -> str:
-        if self.websocket:
-            response = str(await self.websocket.recv())
-        else:
-            raise ConnectionError(
-                "Cannot receive message without established websocket"
-            )
+    def receive_message(self, timeout: Optional[int] = None) -> str:
+        elapsed_time = 0
+        while not self.queue:
+            if timeout is not None and timeout == elapsed_time:
+                raise TimeoutError()
+            time.sleep(1)
+            elapsed_time += 1
+        response = self.queue.pop(0)
         self.logger.info(response)
         return response
 
-    async def find_message(self, message_type: MessageType) -> List[str]:
+    def find_message(
+        self, message_type: MessageType, timeout: Optional[int] = None
+    ) -> List[str]:
         while True:
-            message = await self.receive_message()
+            message = self.receive_message(timeout)
             split_message = message.split("|")
             if message_type == MessageType.LOGIN:
                 if split_message[1] == "challstr":
