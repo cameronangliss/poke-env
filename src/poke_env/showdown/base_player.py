@@ -15,13 +15,13 @@ from poke_env.showdown.client import Client, MessageType
 
 class BasePlayer(Client):
     username: str
-    password: str
+    password: str | None
     logger: logging.Logger
     room: str | None
 
     def __init__(self, username: str, password: str):
         super().__init__(username)
-        self.password = password
+        self.password = password or ""
 
     @abstractmethod
     def get_action(self, battle: Battle) -> int | None:
