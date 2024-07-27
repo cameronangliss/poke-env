@@ -24,7 +24,7 @@ class BasePlayer(Client):
         self.password = password
 
     @abstractmethod
-    def get_action(self, state: Battle) -> int | None:
+    def get_action(self, battle: Battle) -> int | None:
         pass
 
     @abstractmethod
@@ -118,7 +118,7 @@ class BasePlayer(Client):
     async def timer_on(self):
         await self.send_message("/timer on")
 
-    async def observe(self, state: Battle | None = None) -> Battle:
+    async def observe(self, battle: Battle | None = None) -> Battle:
         split_message = await self.find_message(MessageType.OBSERVE)
         if split_message[1] == "request":
             request = json.loads(split_message[2])
@@ -126,20 +126,20 @@ class BasePlayer(Client):
         else:
             request = None
             protocol = split_message
-        if state:
-            state.parse_message(protocol)
+        if battle:
+            battle.parse_message(protocol)
         else:
             battle_tag = "-".join(split_message)[1:]
             logger = logging.getLogger(battle_tag)
-            state = Battle(
+            battle = Battle(
                 battle_tag=battle_tag,
                 username=self.username,
                 logger=logger,
                 gen=9,
             )
-            state.parse_request(request or {})
-            state.parse_message(split_message)
-        return state
+            battle.parse_request(request or {})
+            battle.parse_message(split_message)
+        return battle
 
     async def choose(self, action: int | None):
         action_space = (

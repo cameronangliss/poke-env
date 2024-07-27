@@ -28,7 +28,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         self.logger = logging.getLogger(f"{username}-env")
 
     @abstractmethod
-    def __get_reward(self, state: Battle) -> float:
+    def get_reward(self, battle: Battle) -> float:
         pass
 
     async def setup(self):
@@ -87,10 +87,10 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         await self.agent.choose(action)
         env_player_action = self.env_player.get_action(self.env_player_battle)
         await self.env_player.choose(env_player_action)
-        next_state = await self.agent.observe(self.agent_battle)
-        next_obs = self.agent.encode_battle(next_state)
+        self.agent_battle = await self.agent.observe(self.agent_battle)
+        next_obs = self.agent.encode_battle(self.agent_battle)
         self.env_player_battle = await self.env_player.observe(self.env_player_battle)
-        reward = self.__get_reward(next_state)
+        reward = self.get_reward(self.agent_battle)
         terminated = self.agent_battle.finished
         truncated = False
         return next_obs, reward, terminated, truncated, {}
