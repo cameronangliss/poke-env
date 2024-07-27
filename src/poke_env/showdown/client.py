@@ -118,7 +118,12 @@ class Client:
                 ):
                     return split_messages
             elif message_type == MessageType.OBSERVE:
-                is_request = len(split_messages) == 2 and len(split_messages[1]) == 3 and split_messages[1][1] == "request" and split_messages[1][2]
+                is_request = (
+                    len(split_messages) == 2
+                    and len(split_messages[1]) == 3
+                    and split_messages[1][1] == "request"
+                    and split_messages[1][2]
+                )
                 is_protocol = ["", ""] in split_messages
                 if is_request or is_protocol:
                     return split_messages
