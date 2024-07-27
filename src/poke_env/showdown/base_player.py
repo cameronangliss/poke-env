@@ -19,7 +19,7 @@ class BasePlayer(Client):
     logger: logging.Logger
     room: str | None
 
-    def __init__(self, username: str, password: str):
+    def __init__(self, username: str, password: str | None):
         super().__init__(username)
         self.password = password or ""
 
