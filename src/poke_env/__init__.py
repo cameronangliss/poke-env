@@ -7,6 +7,7 @@ import poke_env.environment as environment
 import poke_env.exceptions as exceptions
 import poke_env.player as player
 import poke_env.ps_client as ps_client
+import poke_env.showdown as showdown
 import poke_env.stats as stats
 import poke_env.teambuilder as teambuilder
 from poke_env.data import gen_data, to_id_str
@@ -50,6 +51,7 @@ __all__ = [
     "gen_data",
     "player",
     "ps_client",
+    "showdown",
     "stats",
     "teambuilder",
     "to_id_str",
