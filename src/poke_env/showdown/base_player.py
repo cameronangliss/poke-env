@@ -20,7 +20,7 @@ class BasePlayer(Client):
 
     def __init__(self, username: str, password: str | None):
         super().__init__(username)
-        self.password = password or ""
+        self.password = password
 
     @abstractmethod
     def get_action(self, battle: Battle) -> int | None:
@@ -43,19 +43,22 @@ class BasePlayer(Client):
     # Commands to be used by Player when communicating with PokemonShowdown website
 
     def login(self):
-        split_message = self.find_message(MessageType.LOGIN)
-        client_id = split_message[2]
-        challstr = split_message[3]
-        response = requests.post(
-            "https://play.pokemonshowdown.com/api/login",
-            {
-                "name": self.username,
-                "pass": self.password,
-                "challstr": f"{client_id}|{challstr}",
-            },
-        )
-        response_json = json.loads(response.text[1:])
-        assertion = response_json.get("assertion")
+        if self.password is None:
+            assertion = ""
+        else:
+            split_message = self.find_message(MessageType.LOGIN)
+            client_id = split_message[2]
+            challstr = split_message[3]
+            response = requests.post(
+                "https://play.pokemonshowdown.com/api/login",
+                {
+                    "name": self.username,
+                    "pass": self.password,
+                    "challstr": f"{client_id}|{challstr}",
+                },
+            )
+            response_json = json.loads(response.text[1:])
+            assertion = response_json.get("assertion")
         self.send_message(f"/trn {self.username},0,{assertion}")
 
     def forfeit_games(self):
