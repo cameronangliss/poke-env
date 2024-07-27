@@ -22,19 +22,18 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
 
     def __init__(
         self,
-        username: str,
-        password: Optional[str],
+        agent: BasePlayer,
         env_player: BasePlayer,
         battle_format: str,
     ):
         self.observation_space = self.describe_embedding()
         self.action_space = Discrete(26)  # type: ignore
-        self.agent = BasePlayer(username, password)
+        self.agent = agent
         self.agent.setup()
         self.env_player = env_player
         self.env_player.setup()
         self.battle_format = battle_format
-        self.logger = logging.getLogger(f"{username}-env")
+        self.logger = logging.getLogger(f"{agent.username}-env")
 
     @abstractmethod
     def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
