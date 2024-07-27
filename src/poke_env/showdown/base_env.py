@@ -20,7 +20,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     logger: logging.Logger
 
     def __init__(
-        self, username: str, password: str, env_player: BasePlayer, battle_format: str
+        self, username: str, password: Optional[str], env_player: BasePlayer, battle_format: str
     ):
         self.agent = BasePlayer(username, password)
         self.env_player = env_player
