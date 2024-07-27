@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 from abc import abstractmethod
 
 import numpy as np
@@ -59,13 +60,14 @@ class BasePlayer(Client):
             )
             response_json = json.loads(response.text[1:])
             assertion = response_json.get("assertion")
+        time.sleep(0.1)
         self.send_message(f"/trn {self.username},0,{assertion}")
 
     def forfeit_games(self):
         # The first games message is always empty, so this is here to pass by that message.
         self.find_message(MessageType.GAMES)
         try:
-            split_message = self.find_message(MessageType.GAMES, timeout=5)
+            split_message = self.find_message(MessageType.GAMES, timeout=0.1)
         except TimeoutError:
             self.logger.info(
                 "Second updatesearch message not received. This should mean the user just logged in."

@@ -49,19 +49,20 @@ class Client:
         self.logger.info(message)
         self.websocket.send(message)
 
-    def receive_message(self, timeout: Optional[int] = None) -> str:
+    def receive_message(self, timeout: Optional[float] = None) -> str:
         elapsed_time = 0
         while not self.queue:
-            if timeout is not None and timeout == elapsed_time:
-                raise TimeoutError()
-            time.sleep(1)
+            if timeout is not None:
+                if elapsed_time >= timeout:
+                    raise TimeoutError()
+                time.sleep(min(1, timeout - elapsed_time))
             elapsed_time += 1
         response = self.queue.pop(0)
         self.logger.info(response)
         return response
 
     def find_message(
-        self, message_type: MessageType, timeout: Optional[int] = None
+        self, message_type: MessageType, timeout: Optional[float] = None
     ) -> List[str]:
         while True:
             message = self.receive_message(timeout)
