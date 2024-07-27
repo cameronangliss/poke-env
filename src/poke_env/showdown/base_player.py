@@ -24,7 +24,7 @@ class BasePlayer(Client):
         self.password = password
 
     @abstractmethod
-    async def get_action(self, state: Battle) -> int | None:
+    def get_action(self, state: Battle) -> int | None:
         pass
 
     @abstractmethod

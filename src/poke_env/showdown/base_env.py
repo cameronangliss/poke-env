@@ -85,7 +85,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         if self.agent_battle is None or self.env_player_battle is None:
             raise LookupError()
         await self.agent.choose(action)
-        env_player_action = await self.env_player.get_action(self.env_player_battle)
+        env_player_action = self.env_player.get_action(self.env_player_battle)
         await self.env_player.choose(env_player_action)
         next_state = await self.agent.observe(self.agent_battle)
         next_obs = self.agent.encode_battle(next_state)
