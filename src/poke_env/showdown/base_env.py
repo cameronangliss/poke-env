@@ -45,6 +45,10 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     def get_reward(self, battle: Battle) -> float:
         pass
 
+    @abstractmethod
+    def get_action_str(self, battle: Battle, action: Optional[int]) -> Optional[str]:
+        pass
+
     def reset(
         self,
         *,
@@ -84,26 +88,26 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     ) -> Tuple[npt.NDArray[np.float32], float, bool, bool, Dict[str, Any]]:
         if self.agent_battle is None or self.env_player_battle is None:
             raise LookupError()
-        self.agent.choose(
-            (
-                None
-                if self.agent_request is None or "wait" in self.agent_request
-                else action
-            ),
-            None if self.agent_request is None else self.agent_request["rqid"],
+        agent_action = (
+            None
+            if self.agent_request is None or "wait" in self.agent_request
+            else action
         )
-        env_player_action = self.env_player.get_action(self.env_player_battle)
+        agent_rqid = None if self.agent_request is None else self.agent_request["rqid"]
+        self.agent.choose(
+            self.get_action_str(self.agent_battle, agent_action), agent_rqid
+        )
+        env_player_action = (
+            None
+            if self.env_player_request is None or "wait" in self.env_player_request
+            else self.env_player.get_action(self.env_player_battle)
+        )
+        env_player_rqid = (
+            None if self.env_player_request is None else self.env_player_request["rqid"]
+        )
         self.env_player.choose(
-            (
-                None
-                if self.env_player_request is None or "wait" in self.env_player_request
-                else env_player_action
-            ),
-            (
-                None
-                if self.env_player_request is None
-                else self.env_player_request["rqid"]
-            ),
+            self.get_action_str(self.env_player_battle, env_player_action),
+            env_player_rqid,
         )
         self.agent_battle, self.agent_request = self.agent.observe(self.agent_battle)
         self.env_player_battle, self.env_player_request = self.env_player.observe(

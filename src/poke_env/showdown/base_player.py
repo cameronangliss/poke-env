@@ -139,22 +139,20 @@ class BasePlayer(Client):
             )
         if request is not None:
             battle.parse_request(request)
+            battle.team = {
+                request["side"]["pokemon"][i]["ident"]: battle.team[
+                    request["side"]["pokemon"][i]["ident"]
+                ]
+                for i in range(len(request["side"]["pokemon"]))
+            }
         for message in protocol[1:]:
             if message[1] not in ["", "t:"]:
                 battle.parse_message(message)
         return battle, request
 
-    def choose(self, action: int | None, rqid: int | None):
-        action_space = (
-            [f"switch {i}" for i in range(1, 7)]
-            + [f"move {i}" for i in range(1, 5)]
-            + [f"move {i} mega" for i in range(1, 5)]
-            + [f"move {i} zmove" for i in range(1, 5)]
-            + [f"move {i} max" for i in range(1, 5)]
-            + [f"move {i} terastallize" for i in range(1, 5)]
-        )
+    def choose(self, action: str | None, rqid: int | None):
         if action is not None and rqid is not None:
-            self.send_message(f"/choose {action_space[action]}|{rqid}")
+            self.send_message(f"/choose {action}|{rqid}")
 
     def leave(self):
         if self.room:
