@@ -4,6 +4,7 @@ import json
 import logging
 import time
 from abc import abstractmethod
+from typing import Any, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -119,7 +120,7 @@ class BasePlayer(Client):
     def timer_on(self):
         self.send_message("/timer on")
 
-    def observe(self, battle: Battle | None = None) -> Battle:
+    def observe(self, battle: Battle | None = None) -> Tuple[Battle, Any | None]:
         split_messages = self.find_message(MessageType.OBSERVE)
         if len(split_messages[1]) == 3 and split_messages[1][1] == "request":
             request = json.loads(split_messages[1][2])
@@ -141,9 +142,9 @@ class BasePlayer(Client):
         for message in protocol[1:]:
             if message[1] not in ["", "t:"]:
                 battle.parse_message(message)
-        return battle
+        return battle, request
 
-    def choose(self, action: int | None):
+    def choose(self, action: int | None, rqid: int | None):
         action_space = (
             [f"switch {i}" for i in range(1, 7)]
             + [f"move {i}" for i in range(1, 5)]
@@ -152,8 +153,8 @@ class BasePlayer(Client):
             + [f"move {i} max" for i in range(1, 5)]
             + [f"move {i} terastallize" for i in range(1, 5)]
         )
-        if action is not None:
-            self.send_message(f"/choose {action_space[action]}")
+        if action is not None and rqid is not None:
+            self.send_message(f"/choose {action_space[action]}|{rqid}")
 
     def leave(self):
         if self.room:

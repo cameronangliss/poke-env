@@ -16,8 +16,10 @@ from poke_env.showdown.client import PopupError
 class BaseEnv(Env[npt.NDArray[np.float32], int]):
     agent: BasePlayer
     agent_battle: Optional[Battle]
+    agent_request: Any | None
     env_player: BasePlayer
     env_player_battle: Optional[Battle]
+    env_player_request: Any | None
     logger: logging.Logger
 
     def __init__(
@@ -71,8 +73,8 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
                     time.sleep(5)
         self.agent.join(room)
         self.env_player.join(room)
-        self.agent_battle = self.agent.observe()
-        self.env_player_battle = self.env_player.observe()
+        self.agent_battle, self.agent_request = self.agent.observe()
+        self.env_player_battle, self.env_player_request = self.env_player.observe()
         obs = self.agent.embed_battle(self.agent_battle)
         return obs, {}
 
@@ -82,11 +84,31 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     ) -> Tuple[npt.NDArray[np.float32], float, bool, bool, Dict[str, Any]]:
         if self.agent_battle is None or self.env_player_battle is None:
             raise LookupError()
-        self.agent.choose(action)
+        self.agent.choose(
+            (
+                None
+                if self.agent_request is None or "wait" in self.agent_request
+                else action
+            ),
+            None if self.agent_request is None else self.agent_request["rqid"],
+        )
         env_player_action = self.env_player.get_action(self.env_player_battle)
-        self.env_player.choose(env_player_action)
-        self.agent_battle = self.agent.observe(self.agent_battle)
-        self.env_player_battle = self.env_player.observe(self.env_player_battle)
+        self.env_player.choose(
+            (
+                None
+                if self.env_player_request is None or "wait" in self.env_player_request
+                else env_player_action
+            ),
+            (
+                None
+                if self.env_player_request is None
+                else self.env_player_request["rqid"]
+            ),
+        )
+        self.agent_battle, self.agent_request = self.agent.observe(self.agent_battle)
+        self.env_player_battle, self.env_player_request = self.env_player.observe(
+            self.env_player_battle
+        )
         next_obs = self.agent.embed_battle(self.agent_battle)
         reward = self.get_reward(self.agent_battle)
         terminated = self.agent_battle.finished
