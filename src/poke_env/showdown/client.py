@@ -1,10 +1,10 @@
+import asyncio
 import logging
-import threading
 import time
 from enum import Enum, auto
 from typing import Any, List, Optional
 
-from websocket import WebSocket, WebSocketApp
+import websockets.client as ws
 
 
 class PopupError(Exception):
@@ -26,40 +26,47 @@ class Client:
     username: str
     logger: logging.Logger
     room: Optional[str]
-    websocket: WebSocketApp
-    queue: List[str]
+    websocket: Optional[ws.WebSocketClientProtocol]
+    loop: asyncio.BaseEventLoop
 
     def __init__(self, username: str):
         self.username = username
         self.logger = logging.getLogger(username)
         self.room = None
-        self.queue = []
+        self.websocket = None
+        self.loop = asyncio.BaseEventLoop()
 
-        def on_message(_: WebSocket, message: str):
-            self.queue.append(message)
-
-        self.websocket = WebSocketApp(
-            "ws://localhost:8000/showdown/websocket", on_message=on_message
-        )
-        threading.Thread(target=self.websocket.run_forever).start()  # type: ignore
+    def connect(self):
+        while True:
+            try:
+                result = asyncio.run_coroutine_threadsafe(ws.connect(
+                    "ws://localhost:8000/showdown/websocket"
+                ), self.loop)
+                self.websocket = result.result()
+                break
+            except (ConnectionRefusedError, TimeoutError):
+                self.logger.error("Connection attempt failed, retrying now")
+                time.sleep(10)
 
     def send_message(self, message: str):
         room_str = self.room or ""
         message = f"{room_str}|{message}"
         self.logger.info(message)
-        self.websocket.send(message)
+        if self.websocket:
+            asyncio.run_coroutine_threadsafe(self.websocket.send(message), self.loop)
+        else:
+            raise ConnectionError("Cannot send message without established websocket")
 
     def receive_message(self, timeout: Optional[float] = None) -> str:
-        elapsed_time = 0
-        while not self.queue:
-            if timeout is not None:
-                if elapsed_time >= timeout:
-                    raise TimeoutError()
-                time.sleep(min(1, timeout - elapsed_time))
-            elapsed_time += 1
-        response = self.queue.pop(0)
-        self.logger.info(response)
-        return response
+        if self.websocket is not None:
+            result = asyncio.run_coroutine_threadsafe(self.websocket.recv(), self.loop)
+            response = str(result.result(timeout))
+            self.logger.info(response)
+            return response
+        else:
+            raise ConnectionError(
+                "Cannot receive message without established websocket"
+            )
 
     def find_message(
         self, message_type: MessageType, timeout: Optional[float] = None

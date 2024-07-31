@@ -62,7 +62,9 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         elif action < 18:
             return f"move {list(battle.active_pokemon.moves.values())[action - 14].id} zmove"
         elif action < 22:
-            return f"move {list(battle.active_pokemon.moves.values())[action - 18].id} max"
+            return (
+                f"move {list(battle.active_pokemon.moves.values())[action - 18].id} max"
+            )
         else:
             return f"move {list(battle.active_pokemon.moves.values())[action - 22].id} tera"
 
