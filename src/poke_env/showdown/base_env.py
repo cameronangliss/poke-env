@@ -45,6 +45,18 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         await self.env_player.setup()
         self.initialized_event.set()
 
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["loop"] = None
+        state["initialized_event"] = None
+        return state
+
+    def __setstate__(self, state: Dict[str, Any]):
+        self.__dict__.update(state)
+        self.loop = asyncio.get_event_loop()
+        self.initialized_event = asyncio.Event()
+        self.loop.create_task(self._init_async())
+
     @abstractmethod
     def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
         pass
