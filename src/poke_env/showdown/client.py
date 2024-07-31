@@ -80,14 +80,14 @@ class Client:
                 elif split_messages[0][1] == "updatesearch":
                     return split_messages
             elif message_type == MessageType.CHALLENGE:
-                if split_messages[0][1] == "popup":
+                if len(split_messages[0]) > 1 and split_messages[0][1] == "popup":
                     # Popups encountered when searching for challenge message in the past:
                     # 1. Due to high load, you are limited to 12 battles and team validations every 3 minutes.
                     # 2. You challenged less than 10 seconds after your last challenge! It's cancelled in case it's a misclick.
                     # 3. You are already challenging someone. Cancel that challenge before challenging someone else.
                     # 4. The server is restarting. Battles will be available again in a few minutes.
                     raise PopupError(split_messages[0][2])
-                elif split_messages[0][1] == "pm":
+                elif len(split_messages[0]) > 1 and split_messages[0][1] == "pm":
                     if (
                         split_messages[0][2] == f"!{self.username}"
                         and "Due to spam from your internet provider, you can't challenge others right now."
@@ -131,6 +131,7 @@ class Client:
                 if (
                     self.room is not None
                     and self.room in split_messages[0][0]
-                    and split_messages[0][1] == "deinit"
+                    and len(split_messages[1]) > 1
+                    and split_messages[1][1] == "deinit"
                 ):
                     return split_messages

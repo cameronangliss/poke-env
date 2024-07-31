@@ -121,7 +121,7 @@ class Battle(AbstractBattle):
         if side["pokemon"]:
             self._player_role = side["pokemon"][0]["ident"][:2]
 
-        if not self.trapped and not self.reviving:
+        if not self.trapped and not self.maybe_trapped and not self.reviving:
             for pokemon in side["pokemon"]:
                 if pokemon:
                     pokemon = self._team[pokemon["ident"]]

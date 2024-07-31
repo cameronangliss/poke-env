@@ -146,7 +146,13 @@ class BasePlayer(Client):
                 for i in range(len(request["side"]["pokemon"]))
             }
         for message in protocol[1:]:
-            if message[1] not in ["", "t:"]:
+            if message[1] in ["", "t:"]:
+                continue
+            elif message[1] == "win":
+                battle.won_by(message[2])
+            elif message[1] == "tie":
+                battle.tied()
+            else:
                 battle.parse_message(message)
         return battle, request
 

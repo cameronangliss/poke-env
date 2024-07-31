@@ -45,9 +45,26 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     def get_reward(self, battle: Battle) -> float:
         pass
 
-    @abstractmethod
     def get_action_str(self, battle: Battle, action: Optional[int]) -> Optional[str]:
-        pass
+        if action is None:
+            return None
+        elif battle.available_moves and battle.available_moves[0].id == "recharge":
+            return "move recharge"
+        elif battle.available_moves and battle.available_moves[0].id == "struggle":
+            return "move struggle"
+        elif action < 6:
+            return f"switch {list(battle.team.values())[action].species}"
+        assert battle.active_pokemon is not None
+        if action < 10:
+            return f"move {list(battle.active_pokemon.moves.values())[action - 6].id}"
+        elif action < 14:
+            return f"move {list(battle.active_pokemon.moves.values())[action - 10].id} mega"
+        elif action < 18:
+            return f"move {list(battle.active_pokemon.moves.values())[action - 14].id} zmove"
+        elif action < 22:
+            return f"move {list(battle.active_pokemon.moves.values())[action - 18].id} max"
+        else:
+            return f"move {list(battle.active_pokemon.moves.values())[action - 22].id} tera"
 
     def reset(
         self,
