@@ -30,20 +30,19 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         env_player: BasePlayer,
         battle_format: str,
     ):
-        self.loop = asyncio.get_event_loop()
-        self.loop.create_task(self._init_async(agent, env_player, battle_format))
-
-    async def _init_async(
-        self, agent: BasePlayer, env_player: BasePlayer, battle_format: str
-    ):
         self.observation_space = self.describe_embedding()
         self.action_space = Discrete(26)  # type: ignore
         self.agent = agent
-        await self.agent.setup()
         self.env_player = env_player
-        await self.env_player.setup()
+        self.loop = asyncio.get_event_loop()
         self.battle_format = battle_format
         self.logger = logging.getLogger(f"{agent.username}-env")
+        self.loop.create_task(self._init_async())
+
+    async def _init_async(self):
+        await self.agent.setup()
+        await self.env_player.setup()
+        await asyncio.sleep(5)
 
     @abstractmethod
     def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
