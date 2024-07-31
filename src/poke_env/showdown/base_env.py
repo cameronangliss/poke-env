@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import time
 from abc import abstractmethod
@@ -21,6 +22,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
     env_player_battle: Optional[Battle]
     env_player_request: Any | None
     logger: logging.Logger
+    loop: asyncio.AbstractEventLoop
 
     def __init__(
         self,
@@ -28,14 +30,20 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         env_player: BasePlayer,
         battle_format: str,
     ):
+        self.loop.create_task(self._init_async(agent, env_player, battle_format))
+
+    async def _init_async(
+        self, agent: BasePlayer, env_player: BasePlayer, battle_format: str
+    ):
         self.observation_space = self.describe_embedding()
         self.action_space = Discrete(26)  # type: ignore
         self.agent = agent
-        self.agent.setup()
+        await self.agent.setup()
         self.env_player = env_player
-        self.env_player.setup()
+        await self.env_player.setup()
         self.battle_format = battle_format
         self.logger = logging.getLogger(f"{agent.username}-env")
+        self.loop = asyncio.get_event_loop()
 
     @abstractmethod
     def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
@@ -74,16 +82,23 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         seed: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[npt.NDArray[np.float32], Dict[str, Any]]:
-        self.env_player.leave()
+        return asyncio.run(self._reset_async(seed, options))
+
+    async def _reset_async(
+        self,
+        seed: Optional[int] = None,
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[npt.NDArray[np.float32], Dict[str, Any]]:
+        await self.env_player.leave()
         while True:
             try:
-                self.agent.challenge(self.env_player, self.battle_format)
-                room = self.env_player.accept(self.agent)
+                await self.agent.challenge(self.env_player, self.battle_format)
+                room = await self.env_player.accept(self.agent)
                 break
             except PopupError as e1:
                 self.logger.warning(e1)
                 try:
-                    self.agent.cancel(self.env_player)
+                    await self.agent.cancel(self.env_player)
                 except PopupError as e2:
                     self.logger.warning(e2)
                 if (
@@ -94,14 +109,22 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
                     time.sleep(5 * 60 * 60)
                 else:
                     time.sleep(5)
-        self.agent.join(room)
-        self.env_player.join(room)
-        self.agent_battle, self.agent_request = self.agent.observe()
-        self.env_player_battle, self.env_player_request = self.env_player.observe()
+        await self.agent.join(room)
+        await self.env_player.join(room)
+        self.agent_battle, self.agent_request = await self.agent.observe()
+        self.env_player_battle, self.env_player_request = (
+            await self.env_player.observe()
+        )
         obs = self.agent.embed_battle(self.agent_battle)
         return obs, {}
 
     def step(
+        self,
+        action: int,
+    ) -> Tuple[npt.NDArray[np.float32], float, bool, bool, Dict[str, Any]]:
+        return asyncio.run(self._async_step(action))
+
+    async def _async_step(
         self,
         action: int,
     ) -> Tuple[npt.NDArray[np.float32], float, bool, bool, Dict[str, Any]]:
@@ -113,7 +136,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
             else action
         )
         agent_rqid = None if self.agent_request is None else self.agent_request["rqid"]
-        self.agent.choose(
+        await self.agent.choose(
             self.get_action_str(self.agent_battle, agent_action), agent_rqid
         )
         env_player_action = (
@@ -124,12 +147,14 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         env_player_rqid = (
             None if self.env_player_request is None else self.env_player_request["rqid"]
         )
-        self.env_player.choose(
+        await self.env_player.choose(
             self.get_action_str(self.env_player_battle, env_player_action),
             env_player_rqid,
         )
-        self.agent_battle, self.agent_request = self.agent.observe(self.agent_battle)
-        self.env_player_battle, self.env_player_request = self.env_player.observe(
+        self.agent_battle, self.agent_request = await self.agent.observe(
+            self.agent_battle
+        )
+        self.env_player_battle, self.env_player_request = await self.env_player.observe(
             self.env_player_battle
         )
         next_obs = self.agent.embed_battle(self.agent_battle)
@@ -138,8 +163,11 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         return next_obs, reward, terminated, False, {}
 
     def close(self):
-        self.agent.close()
-        self.env_player.close()
+        asyncio.run(self._async_close())
+
+    async def _async_close(self):
+        await self.agent.close()
+        await self.env_player.close()
         # resetting logger
         for handler in logging.getLogger().handlers:
             logging.getLogger().removeHandler(handler)

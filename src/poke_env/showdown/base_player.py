@@ -32,23 +32,23 @@ class BasePlayer(Client):
     def embed_battle(self, battle: Battle) -> npt.NDArray[np.float32]:
         pass
 
-    def setup(self):
+    async def setup(self):
         self.room = None
-        self.login()
-        self.forfeit_games()
+        await self.login()
+        await self.forfeit_games()
 
-    def close(self):
-        self.leave()
-        self.logout()
+    async def close(self):
+        await self.leave()
+        await self.logout()
 
     ###################################################################################
     # Commands to be used by Player when communicating with PokemonShowdown website
 
-    def login(self):
+    async def login(self):
         if self.password is None:
             assertion = ""
         else:
-            split_messages = self.find_message(MessageType.LOGIN)
+            split_messages = await self.find_message(MessageType.LOGIN)
             client_id = split_messages[0][2]
             challstr = split_messages[0][3]
             response = requests.post(
@@ -62,13 +62,13 @@ class BasePlayer(Client):
             response_json = json.loads(response.text[1:])
             assertion = response_json.get("assertion")
         time.sleep(0.1)
-        self.send_message(f"/trn {self.username},0,{assertion}")
+        await self.send_message(f"/trn {self.username},0,{assertion}")
 
-    def forfeit_games(self):
+    async def forfeit_games(self):
         # The first games message is always empty, so this is here to pass by that message.
-        self.find_message(MessageType.GAMES)
+        await self.find_message(MessageType.GAMES)
         try:
-            split_messages = self.find_message(MessageType.GAMES, timeout=0.1)
+            split_messages = await self.find_message(MessageType.GAMES, timeout=0.1)
         except TimeoutError:
             self.logger.info(
                 "Second updatesearch message not received. This should mean the user just logged in."
@@ -79,52 +79,52 @@ class BasePlayer(Client):
                 Battlerooms = list(games.keys())
                 prev_room = self.room
                 for room in Battlerooms:
-                    self.join(room)
-                    self.send_message("/forfeit")
-                    self.leave()
+                    await self.join(room)
+                    await self.send_message("/forfeit")
+                    await self.leave()
                 if prev_room:
-                    self.join(prev_room)
+                    await self.join(prev_room)
 
-    def set_avatar(self, avatar: str):
-        self.send_message(f"/avatar {avatar}")
+    async def set_avatar(self, avatar: str):
+        await self.send_message(f"/avatar {avatar}")
 
-    def challenge(
+    async def challenge(
         self, opponent: BasePlayer, Battleformat: str, team: str | None = None
     ):
-        self.send_message(f"/utm {team}")
-        self.send_message(f"/challenge {opponent.username}, {Battleformat}")
+        await self.send_message(f"/utm {team}")
+        await self.send_message(f"/challenge {opponent.username}, {Battleformat}")
         # Waiting for confirmation that challenge was sent
-        self.find_message(MessageType.CHALLENGE)
+        await self.find_message(MessageType.CHALLENGE)
 
-    def cancel(self, opponent: BasePlayer):
-        self.send_message(f"/cancelchallenge {opponent.username}")
+    async def cancel(self, opponent: BasePlayer):
+        await self.send_message(f"/cancelchallenge {opponent.username}")
         # Waiting for confirmation that challenge was cancelled
-        self.find_message(MessageType.CANCEL)
+        await self.find_message(MessageType.CANCEL)
 
-    def accept(self, opponent: BasePlayer, team: str | None = None) -> str:
+    async def accept(self, opponent: BasePlayer, team: str | None = None) -> str:
         # Waiting for confirmation that challenge was received
-        self.find_message(MessageType.ACCEPT)
-        self.send_message(f"/utm {team}")
-        self.send_message(f"/accept {opponent.username}")
+        await self.find_message(MessageType.ACCEPT)
+        await self.send_message(f"/utm {team}")
+        await self.send_message(f"/accept {opponent.username}")
         # The first games message is always empty, so this is here to pass by that message.
-        self.find_message(MessageType.GAMES)
-        split_messages = self.find_message(MessageType.GAMES)
+        await self.find_message(MessageType.GAMES)
+        split_messages = await self.find_message(MessageType.GAMES)
         games = json.loads(split_messages[0][2])["games"]
         room = list(games.keys())[0]
         return room
 
-    def join(self, room: str):
-        self.send_message(f"/join {room}")
+    async def join(self, room: str):
+        await self.send_message(f"/join {room}")
         self.room = room
 
-    def timer_on(self):
-        self.send_message("/timer on")
+    async def timer_on(self):
+        await self.send_message("/timer on")
 
-    def observe(self, battle: Battle | None = None) -> Tuple[Battle, Any | None]:
-        split_messages = self.find_message(MessageType.OBSERVE)
+    async def observe(self, battle: Battle | None = None) -> Tuple[Battle, Any | None]:
+        split_messages = await self.find_message(MessageType.OBSERVE)
         if len(split_messages[1]) == 3 and split_messages[1][1] == "request":
             request = json.loads(split_messages[1][2])
-            protocol = self.find_message(MessageType.OBSERVE)
+            protocol = await self.find_message(MessageType.OBSERVE)
         else:
             request = None
             protocol = split_messages
@@ -156,16 +156,16 @@ class BasePlayer(Client):
                 battle.parse_message(message)
         return battle, request
 
-    def choose(self, action: str | None, rqid: int | None):
+    async def choose(self, action: str | None, rqid: int | None):
         if action is not None and rqid is not None:
-            self.send_message(f"/choose {action}|{rqid}")
+            await self.send_message(f"/choose {action}|{rqid}")
 
-    def leave(self):
+    async def leave(self):
         if self.room:
-            self.send_message(f"/leave {self.room}")
+            await self.send_message(f"/leave {self.room}")
             # gets rid of all messages having to do with the room being left
-            self.find_message(MessageType.LEAVE)
+            await self.find_message(MessageType.LEAVE)
             self.room = None
 
-    def logout(self):
-        self.send_message("/logout")
+    async def logout(self):
+        await self.send_message("/logout")
