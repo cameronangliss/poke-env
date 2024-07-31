@@ -30,6 +30,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         env_player: BasePlayer,
         battle_format: str,
     ):
+        self.loop = asyncio.get_event_loop()
         self.loop.create_task(self._init_async(agent, env_player, battle_format))
 
     async def _init_async(
@@ -43,7 +44,6 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         await self.env_player.setup()
         self.battle_format = battle_format
         self.logger = logging.getLogger(f"{agent.username}-env")
-        self.loop = asyncio.get_event_loop()
 
     @abstractmethod
     def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
@@ -82,7 +82,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         seed: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[npt.NDArray[np.float32], Dict[str, Any]]:
-        return asyncio.run(self._reset_async(seed, options))
+        return self.loop.run_until_complete(self._reset_async(seed, options))
 
     async def _reset_async(
         self,
@@ -122,7 +122,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         self,
         action: int,
     ) -> Tuple[npt.NDArray[np.float32], float, bool, bool, Dict[str, Any]]:
-        return asyncio.run(self._async_step(action))
+        return self.loop.run_until_complete(self._async_step(action))
 
     async def _async_step(
         self,
@@ -163,7 +163,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         return next_obs, reward, terminated, False, {}
 
     def close(self):
-        asyncio.run(self._async_close())
+        self.loop.run_until_complete(self._async_close())
 
     async def _async_close(self):
         await self.agent.close()
