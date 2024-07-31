@@ -34,6 +34,7 @@ class BasePlayer(Client):
 
     async def setup(self):
         self.room = None
+        await self.connect()
         await self.login()
         await self.forfeit_games()
 
