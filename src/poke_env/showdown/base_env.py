@@ -34,15 +34,16 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         self.action_space = Discrete(26)  # type: ignore
         self.agent = agent
         self.env_player = env_player
-        self.loop = asyncio.get_event_loop()
         self.battle_format = battle_format
         self.logger = logging.getLogger(f"{agent.username}-env")
+        self.loop = asyncio.get_event_loop()
+        self.initialized_event = asyncio.Event()
         self.loop.create_task(self._init_async())
 
     async def _init_async(self):
         await self.agent.setup()
         await self.env_player.setup()
-        await asyncio.sleep(5)
+        self.initialized_event.set()
 
     @abstractmethod
     def describe_embedding(self) -> Space[npt.NDArray[np.float32]]:
@@ -88,6 +89,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         seed: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[npt.NDArray[np.float32], Dict[str, Any]]:
+        await self.initialized_event.wait()
         await self.env_player.leave()
         while True:
             try:
@@ -127,6 +129,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         self,
         action: int,
     ) -> Tuple[npt.NDArray[np.float32], float, bool, bool, Dict[str, Any]]:
+        await self.initialized_event.wait()
         if self.agent_battle is None or self.env_player_battle is None:
             raise LookupError()
         agent_action = (
@@ -165,6 +168,7 @@ class BaseEnv(Env[npt.NDArray[np.float32], int]):
         self.loop.run_until_complete(self._async_close())
 
     async def _async_close(self):
+        await self.initialized_event.wait()
         await self.agent.close()
         await self.env_player.close()
         # resetting logger
