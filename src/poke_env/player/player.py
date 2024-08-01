@@ -154,7 +154,7 @@ class Player(ABC):
 
         self.logger.debug("Player initialisation finished")
 
-    def  __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
         state["_battle_semaphore"] = None
         state["_battle_start_condition"] = None
@@ -162,7 +162,7 @@ class Player(ABC):
         state["_battle_end_condition"] = None
         state["_challenge_queue"] = None
         return state
-    
+
     def __setstate__(self, state: Dict[str, Any]):
         self.__dict__.update(state)
         self._battle_semaphore = create_in_poke_loop(Semaphore, 0)

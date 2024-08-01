@@ -104,7 +104,7 @@ class EnvPlayer(OpenAIGymEnv[ObsType, ActType], ABC):
             start_challenging=start_challenging,
         )
 
-    def  __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
         state["_opponent_lock"] = None
         return state

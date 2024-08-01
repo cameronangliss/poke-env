@@ -84,7 +84,7 @@ class PSClient:
                 self.listen(), POKE_LOOP
             )
 
-    def  __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
         state["_active_tasks"] = None
         state["_logged_in"] = None

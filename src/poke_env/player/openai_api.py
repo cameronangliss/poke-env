@@ -73,13 +73,13 @@ class _AsyncPlayer(Generic[ObsType, ActType], Player):
         self.actions = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
         self.current_battle: Optional[AbstractBattle] = None
         self._user_funcs = user_funcs
-    
-    def  __getstate__(self) -> Dict[str, Any]:
+
+    def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
         state["observations"] = None
         state["actions"] = None
         return state
-    
+
     def __setstate__(self, state: Dict[str, Any]):
         self.__dict__.update(state)
         self.observations = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
@@ -222,7 +222,7 @@ class OpenAIGymEnv(
                 self._challenge_loop(), POKE_LOOP
             )
 
-    def  __getstate__(self) -> Dict[str, Any]:
+    def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
         state["agent"] = None
         state["_actions"] = None
