@@ -4,7 +4,7 @@
 import asyncio
 import json
 import logging
-from asyncio import CancelledError, Event, Lock, create_task, sleep
+from asyncio import CancelledError, Event, Lock, Task, create_task, sleep
 from logging import Logger
 from time import perf_counter
 from typing import Any, Dict, List, Optional, Set
@@ -64,7 +64,7 @@ class PSClient:
             If None pings will never time out.
         :type ping_timeout: float, optional
         """
-        self._active_tasks: Set[Any] = set()
+        self._active_tasks: Set[Task[Any]] = set()
         self._ping_interval = ping_interval
         self._ping_timeout = ping_timeout
 
@@ -83,17 +83,19 @@ class PSClient:
             self._listening_coroutine = asyncio.run_coroutine_threadsafe(
                 self.listen(), POKE_LOOP
             )
-    
+
     def  __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
+        state["_active_tasks"] = None
         state["_logged_in"] = None
         state["_sending_lock"] = None
         state["websocket"] = None
-        state["_start_listening_coroutine"] = None
+        state["_listening_coroutine"] = None
         return state
-    
+
     def __setstate__(self, state: Dict[str, Any]):
         self.__dict__.update(state)
+        self._active_tasks = set()
         self._logged_in = create_in_poke_loop(Event)
         self._sending_lock = create_in_poke_loop(Lock)
         self._listening_coroutine = asyncio.run_coroutine_threadsafe(
