@@ -73,6 +73,17 @@ class _AsyncPlayer(Generic[ObsType, ActType], Player):
         self.actions = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
         self.current_battle: Optional[AbstractBattle] = None
         self._user_funcs = user_funcs
+    
+    def  __getstate__(self) -> Dict[str, Any]:
+        state = self.__dict__.copy()
+        state["observations"] = None
+        state["actions"] = None
+        return state
+    
+    def __setstate__(self, state: Dict[str, Any]):
+        self.__dict__.update(state)
+        self.observations = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
+        self.actions = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
 
     def choose_move(self, battle: AbstractBattle) -> Awaitable[BattleOrder]:
         return self._env_move(battle)
@@ -210,6 +221,22 @@ class OpenAIGymEnv(
             self._challenge_task = asyncio.run_coroutine_threadsafe(
                 self._challenge_loop(), POKE_LOOP
             )
+
+    def  __getstate__(self) -> Dict[str, Any]:
+        state = self.__dict__.copy()
+        state["agent"] = None
+        state["_actions"] = None
+        state["_observations"] = None
+        state["_challenge_task"] = None
+        return state
+
+    def __setstate__(self, state: Dict[str, Any]):
+        self.__dict__.update(state)
+        self._actions = self.agent.actions
+        self._observations = self.agent.observations
+        self._challenge_task = asyncio.run_coroutine_threadsafe(
+            self._challenge_loop(), POKE_LOOP
+        )
 
     @abstractmethod
     def calc_reward(

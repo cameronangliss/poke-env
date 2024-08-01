@@ -3,7 +3,7 @@
 
 from abc import ABC
 from threading import Lock
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from poke_env.environment.abstract_battle import AbstractBattle
 from poke_env.player.battle_order import BattleOrder, ForfeitBattleOrder
@@ -103,6 +103,15 @@ class EnvPlayer(OpenAIGymEnv[ObsType, ActType], ABC):
             ping_timeout=ping_timeout,
             start_challenging=start_challenging,
         )
+
+    def  __getstate__(self) -> Dict[str, Any]:
+        state = self.__dict__.copy()
+        state["_opponent_lock"] = None
+        return state
+
+    def __setstate__(self, state: Dict[str, Any]):
+        self.__dict__.update(state)
+        self._opponent_lock = Lock()
 
     def reward_computing_helper(
         self,

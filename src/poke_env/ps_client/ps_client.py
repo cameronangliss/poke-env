@@ -7,7 +7,7 @@ import logging
 from asyncio import CancelledError, Event, Lock, create_task, sleep
 from logging import Logger
 from time import perf_counter
-from typing import Any, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 import requests
 import websockets.client as ws
@@ -83,6 +83,22 @@ class PSClient:
             self._listening_coroutine = asyncio.run_coroutine_threadsafe(
                 self.listen(), POKE_LOOP
             )
+    
+    def  __getstate__(self) -> Dict[str, Any]:
+        state = self.__dict__.copy()
+        state["_logged_in"] = None
+        state["_sending_lock"] = None
+        state["websocket"] = None
+        state["_start_listening_coroutine"] = None
+        return state
+    
+    def __setstate__(self, state: Dict[str, Any]):
+        self.__dict__.update(state)
+        self._logged_in = create_in_poke_loop(Event)
+        self._sending_lock = create_in_poke_loop(Lock)
+        self._listening_coroutine = asyncio.run_coroutine_threadsafe(
+            self.listen(), POKE_LOOP
+        )
 
     async def accept_challenge(self, username: str, packed_team: Optional[str]):
         assert self.logged_in.is_set(), f"Expected {self.username} to be logged in."
