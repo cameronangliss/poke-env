@@ -224,7 +224,6 @@ class OpenAIGymEnv(
 
     def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
-        state["agent"] = None
         state["_actions"] = None
         state["_observations"] = None
         state["_challenge_task"] = None
