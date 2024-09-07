@@ -145,6 +145,10 @@ class Player(ABC):
         self._battle_end_condition: Condition = create_in_poke_loop(Condition)
         self._challenge_queue: Queue[Any] = create_in_poke_loop(Queue)
 
+        self.last_obs: Optional[AbstractBattle] = None
+        self.current_obs: Optional[AbstractBattle] = None
+        self.action: Optional[BattleOrder] = None
+
         if isinstance(team, Teambuilder):
             self._team = team
         elif isinstance(team, str):
@@ -256,6 +260,8 @@ class Player(ABC):
             battle = await self._create_battle(battle_info)
         else:
             battle = await self._get_battle(split_messages[0][0])
+        self.last_obs = self.current_obs
+        self.current_obs = battle
 
         for split_message in split_messages[1:]:
             if len(split_message) <= 1:
@@ -366,7 +372,8 @@ class Player(ABC):
         maybe_default_order: bool = False,
     ):
         if maybe_default_order and random.random() < self.DEFAULT_CHOICE_CHANCE:
-            message = self.choose_default_move().message
+            self.action = self.choose_default_move()
+            message = self.action.message
         elif battle.teampreview:
             if not from_teampreview_request:
                 return
@@ -375,7 +382,8 @@ class Player(ABC):
             message = self.choose_move(battle)
             if isinstance(message, Awaitable):
                 message = await message
-            message = message.message
+            self.action = message
+            message = self.action.message
 
         await self.ps_client.send_message(message, battle.battle_tag)
 
