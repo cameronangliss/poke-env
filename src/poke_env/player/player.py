@@ -276,6 +276,10 @@ class Player(ABC):
                 if split_message[2]:
                     request = orjson.loads(split_message[2])
                     battle.parse_request(request)
+                    if "wait" not in request["active"]:
+                        self.action = copy.deepcopy(self.next_action)
+                        self.last_obs = copy.deepcopy(self.current_obs)
+                        self.current_obs = copy.deepcopy(battle)
                     if battle.move_on_next_request:
                         await self._handle_battle_request(battle)
                         battle.move_on_next_request = False
@@ -375,7 +379,6 @@ class Player(ABC):
         from_teampreview_request: bool = False,
         maybe_default_order: bool = False,
     ):
-        self.action = copy.deepcopy(self.next_action)
         if maybe_default_order and random.random() < self.DEFAULT_CHOICE_CHANCE:
             self.next_action = self.choose_default_move()
             message = self.next_action.message
@@ -389,8 +392,7 @@ class Player(ABC):
                 message = await message
             self.next_action = message
             message = self.next_action.message
-        self.last_obs = copy.deepcopy(self.current_obs)
-        self.current_obs = copy.deepcopy(battle)
+
         await self.ps_client.send_message(message, battle.battle_tag)
 
     async def _handle_challenge_request(self, split_message: List[str]):
