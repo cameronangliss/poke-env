@@ -279,7 +279,7 @@ class Player(ABC):
                     if "wait" not in request:
                         self.action = copy.copy(self.next_action)
                         self.last_obs = copy.copy(self.current_obs)
-                        self.current_obs = copy.copy(battle)
+                        self.current_obs = copy.deepcopy(battle)
                     if battle.move_on_next_request:
                         await self._handle_battle_request(battle)
                         battle.move_on_next_request = False
