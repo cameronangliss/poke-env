@@ -149,7 +149,6 @@ class Player(ABC):
         self.last_obs: Optional[AbstractBattle] = None
         self.current_obs: Optional[AbstractBattle] = None
         self.action: Optional[BattleOrder] = None
-        self.next_action: Optional[BattleOrder] = None
 
         if isinstance(team, Teambuilder):
             self._team = team
@@ -263,12 +262,10 @@ class Player(ABC):
             self.last_obs = None
             self.current_obs = battle
             self.action = None
-            self.next_action = None
         else:
             battle = await self._get_battle(split_messages[0][0])
             self.last_obs = copy.deepcopy(self.current_obs)
             self.current_obs = battle
-            self.action = copy.deepcopy(self.next_action)
 
         for split_message in split_messages[1:]:
             if len(split_message) <= 1:
@@ -379,8 +376,8 @@ class Player(ABC):
         maybe_default_order: bool = False,
     ):
         if maybe_default_order and random.random() < self.DEFAULT_CHOICE_CHANCE:
-            self.next_action = self.choose_default_move()
-            message = self.next_action.message
+            self.action = self.choose_default_move()
+            message = self.action.message
         elif battle.teampreview:
             if not from_teampreview_request:
                 return
@@ -389,8 +386,8 @@ class Player(ABC):
             message = self.choose_move(battle)
             if isinstance(message, Awaitable):
                 message = await message
-            self.next_action = message
-            message = self.next_action.message
+            self.action = message
+            message = self.action.message
 
         await self.ps_client.send_message(message, battle.battle_tag)
 
