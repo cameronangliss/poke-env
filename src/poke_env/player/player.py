@@ -277,9 +277,9 @@ class Player(ABC):
                     request = orjson.loads(split_message[2])
                     battle.parse_request(request)
                     if "wait" not in request:
-                        self.action = copy.deepcopy(self.next_action)
-                        self.last_obs = copy.deepcopy(self.current_obs)
-                        self.current_obs = copy.deepcopy(battle)
+                        self.action = copy.copy(self.next_action)
+                        self.last_obs = copy.copy(self.current_obs)
+                        self.current_obs = copy.copy(battle)
                     if battle.move_on_next_request:
                         await self._handle_battle_request(battle)
                         battle.move_on_next_request = False
