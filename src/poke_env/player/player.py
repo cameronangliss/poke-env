@@ -2,6 +2,7 @@
 """
 
 import asyncio
+import copy
 import random
 from abc import ABC, abstractmethod
 from asyncio import Condition, Event, Queue, Semaphore
@@ -265,9 +266,9 @@ class Player(ABC):
             self.next_action = None
         else:
             battle = await self._get_battle(split_messages[0][0])
-            self.last_obs = self.current_obs
+            self.last_obs = copy.deepcopy(self.current_obs)
             self.current_obs = battle
-            self.action = self.next_action
+            self.action = copy.deepcopy(self.next_action)
 
         for split_message in split_messages[1:]:
             if len(split_message) <= 1:
