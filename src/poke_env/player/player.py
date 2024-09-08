@@ -261,6 +261,8 @@ class Player(ABC):
             battle = await self._create_battle(battle_info)
             self.last_obs = None
             self.current_obs = battle
+            self.action = None
+            self.next_action = None
         else:
             battle = await self._get_battle(split_messages[0][0])
             self.last_obs = self.current_obs
