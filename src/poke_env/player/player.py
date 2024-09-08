@@ -260,12 +260,12 @@ class Player(ABC):
             battle_info = split_messages[0][0].split("-")
             battle = await self._create_battle(battle_info)
             self.last_obs = None
-            self.current_obs = battle
+            self.current_obs = copy.deepcopy(battle)
             self.action = None
         else:
             battle = await self._get_battle(split_messages[0][0])
             self.last_obs = copy.deepcopy(self.current_obs)
-            self.current_obs = battle
+            self.current_obs = copy.deepcopy(battle)
 
         for split_message in split_messages[1:]:
             if len(split_message) <= 1:
