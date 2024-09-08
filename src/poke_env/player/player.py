@@ -264,8 +264,6 @@ class Player(ABC):
             self.action = None
         else:
             battle = await self._get_battle(split_messages[0][0])
-            self.last_obs = copy.deepcopy(self.current_obs)
-            self.current_obs = copy.deepcopy(battle)
 
         for split_message in split_messages[1:]:
             if len(split_message) <= 1:
@@ -388,7 +386,8 @@ class Player(ABC):
                 message = await message
             self.action = message
             message = self.action.message
-
+        self.last_obs = copy.deepcopy(self.current_obs)
+        self.current_obs = copy.deepcopy(battle)
         await self.ps_client.send_message(message, battle.battle_tag)
 
     async def _handle_challenge_request(self, split_message: List[str]):
