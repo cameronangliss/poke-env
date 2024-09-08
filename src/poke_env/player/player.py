@@ -276,8 +276,7 @@ class Player(ABC):
                 if split_message[2]:
                     request = orjson.loads(split_message[2])
                     battle.parse_request(request)
-                    print(request)
-                    if "wait" not in request["active"]:
+                    if "wait" not in request:
                         self.action = copy.deepcopy(self.next_action)
                         self.last_obs = copy.deepcopy(self.current_obs)
                         self.current_obs = copy.deepcopy(battle)
