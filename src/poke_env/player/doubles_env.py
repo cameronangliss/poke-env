@@ -2,9 +2,10 @@ from typing import Optional, Union
 
 import numpy as np
 import numpy.typing as npt
+from bidict import bidict
 from gymnasium.spaces import MultiDiscrete
 
-from poke_env.environment import DoubleBattle, Move, Pokemon
+from poke_env.environment import DoubleBattle, Pokemon
 from poke_env.player.battle_order import (
     BattleOrder,
     DoubleBattleOrder,
@@ -122,11 +123,11 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
         :rtype: BattleOrder
 
         """
+        if action[0] == -1 or action[1] == -1:
+            return ForfeitBattleOrder()
+        dont_respond1 = any(battle.force_switch) and not battle.force_switch[0]
+        dont_respond2 = any(battle.force_switch) and not battle.force_switch[1]
         try:
-            if action[0] == -1 or action[1] == -1:
-                return ForfeitBattleOrder()
-            dont_respond1 = any(battle.force_switch) and not battle.force_switch[0]
-            dont_respond2 = any(battle.force_switch) and not battle.force_switch[1]
             order1 = (
                 None
                 if dont_respond1
@@ -143,53 +144,16 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
             )[0]
         except IndexError:
             return Player.choose_random_move(battle)
-        except AssertionError as e:
-            if str(e) == "invalid pick":
-                return Player.choose_random_move(battle)
-            else:
-                raise e
+        except AssertionError:
+            return Player.choose_random_move(battle)
 
     @staticmethod
     def _action_to_order_individual(
         action: np.int64, battle: DoubleBattle, pos: int
     ) -> Optional[BattleOrder]:
-        if action == 0:
-            order = None
-        elif action < 7:
-            order = Player.create_order(list(battle.team.values())[action - 1])
-            assert order.order in battle.available_switches[pos], "invalid pick"
-        else:
-            assert not battle.force_switch[pos], "invalid pick"
-            active_mon = battle.active_pokemon[pos]
-            assert active_mon is not None, "invalid pick"
-            mvs = (
-                battle.available_moves[pos]
-                if len(battle.available_moves[pos]) == 1
-                and battle.available_moves[pos][0].id in ["struggle", "recharge"]
-                else list(active_mon.moves.values())
-            )
-            order = Player.create_order(
-                mvs[(action - 7) % 4],
-                move_target=(action.item() - 7) % 20 // 4 - 2,
-                mega=(action - 7) // 20 == 1,
-                z_move=(action - 7) // 20 == 2,
-                dynamax=(action - 7) // 20 == 3,
-                terastallize=(action - 7) // 20 == 4,
-            )
-            assert isinstance(order.order, Move)
-            assert order.order.id in [
-                m.id for m in battle.available_moves[pos]
-            ], "invalid pick"
-            move = [m for m in battle.available_moves[pos] if m.id == order.order.id][0]
-            assert order.move_target in battle.get_possible_showdown_targets(
-                move, active_mon
-            ), "invalid pick"
-            assert not order.mega or battle.can_mega_evolve[pos], "invalid pick"
-            assert not order.z_move or battle.can_z_move[pos], "invalid pick"
-            assert not order.dynamax or battle.can_dynamax[pos], "invalid pick"
-            assert (
-                not order.terastallize or battle.can_tera[pos] is not False
-            ), "invalid pick"
+        action_order_map = DoublesEnv.get_action_order_map(battle, pos)
+        order = action_order_map[action]
+        assert DoublesEnv.is_valid_order(order, battle, pos), "invalid choice"
         return order
 
     @staticmethod
@@ -218,50 +182,69 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
     def _order_to_action_individual(
         order: Optional[BattleOrder], battle: DoubleBattle, pos: int
     ) -> np.int64:
-        if order is None:
-            action = 0
-        elif isinstance(order, ForfeitBattleOrder):
-            action = -1
-        elif order.order is None:
-            raise AssertionError()
-        elif isinstance(order.order, Pokemon):
-            action = [p.base_species for p in battle.team.values()].index(
-                order.order.base_species
-            ) + 1
-        else:
-            assert not battle.force_switch[pos], "invalid pick"
-            active_mon = battle.active_pokemon[pos]
-            assert active_mon is not None, "invalid pick"
-            mvs = (
-                battle.available_moves[pos]
-                if len(battle.available_moves[pos]) == 1
-                and battle.available_moves[pos][0].id in ["struggle", "recharge"]
-                else list(active_mon.moves.values())
+        assert DoublesEnv.is_valid_order(order, battle, pos), "invalid choice"
+        action_order_map = DoublesEnv.get_action_order_map(battle, pos)
+        return action_order_map.inv[order]
+
+    @staticmethod
+    def get_action_order_map(
+        battle: DoubleBattle, pos: int
+    ) -> bidict[np.int64, Optional[BattleOrder]]:
+        num_switches = 6
+        num_moves = 4
+        num_gimmicks = 5
+        num_targets = 5
+        action_order_map: bidict[np.int64, Optional[BattleOrder]] = bidict()
+        action_order_map[np.int64(-1)] = ForfeitBattleOrder()
+        action_order_map[np.int64(0)] = None
+        for switch in range(num_switches):
+            action_order_map[np.int64(1 + switch)] = Player.create_order(
+                list(battle.team.values())[switch]
             )
-            action = [m.id for m in mvs].index(order.order.id)
-            target = order.move_target + 2
-            if order.mega:
-                gimmick = 1
-            elif order.z_move:
-                gimmick = 2
-            elif order.dynamax:
-                gimmick = 3
-            elif order.terastallize:
-                gimmick = 4
-            else:
-                gimmick = 0
-            action = 1 + 6 + action + 4 * target + 20 * gimmick
-            assert order.order.id in [
-                m.id for m in battle.available_moves[pos]
-            ], "invalid pick"
+        active_mon = battle.active_pokemon[pos]
+        if active_mon is not None:
+            for target in range(num_targets):
+                for gimmick in range(num_gimmicks):
+                    for move in range(num_moves):
+                        action_order_map[
+                            np.int64(
+                                1
+                                + num_switches
+                                + num_moves * num_gimmicks * target
+                                + num_moves * gimmick
+                                + move
+                            )
+                        ] = Player.create_order(
+                            list(active_mon.moves.values())[move],
+                            mega=gimmick == 1,
+                            z_move=gimmick == 2,
+                            dynamax=gimmick == 3,
+                            terastallize=gimmick == 4,
+                            move_target=target - 2,
+                        )
+        return action_order_map
+
+    @staticmethod
+    def is_valid_order(
+        order: Optional[BattleOrder], battle: DoubleBattle, pos: int
+    ) -> bool:
+        active_mon = battle.active_pokemon[pos]
+        if order is None:
+            return active_mon is None
+        elif order.order is None:
+            return False
+        elif isinstance(order.order, Pokemon):
+            return order.order in battle.available_switches[pos]
+        else:
             move = [m for m in battle.available_moves[pos] if m.id == order.order.id][0]
-            assert order.move_target in battle.get_possible_showdown_targets(
-                move, active_mon
-            ), "invalid pick"
-            assert not order.mega or battle.can_mega_evolve[pos], "invalid pick"
-            assert not order.z_move or battle.can_z_move[pos], "invalid pick"
-            assert not order.dynamax or battle.can_dynamax[pos], "invalid pick"
-            assert (
-                not order.terastallize or battle.can_tera[pos] is not False
-            ), "invalid pick"
-        return np.int64(action)
+            return (
+                not battle.force_switch[pos]
+                and active_mon is not None
+                and order.order.id in [m.id for m in battle.available_moves[pos]]
+                and order.move_target
+                in battle.get_possible_showdown_targets(move, active_mon)
+                and (not order.mega or battle.can_mega_evolve[pos])
+                and (not order.z_move or battle.can_z_move[pos])
+                and (not order.dynamax or battle.can_dynamax[pos])
+                and (not order.terastallize or battle.can_tera[pos] is not False)
+            )

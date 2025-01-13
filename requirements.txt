@@ -1,3 +1,4 @@
+bidict
 gymnasium
 numpy
 orjson
