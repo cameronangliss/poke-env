@@ -154,7 +154,9 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
     @staticmethod
     def is_valid_order(order: BattleOrder, battle: Battle) -> bool:
         active_mon = battle.active_pokemon
-        if order.order is None:
+        if isinstance(order, ForfeitBattleOrder):
+            return True
+        elif order.order is None:
             return False
         elif isinstance(order.order, Pokemon):
             return order.order in battle.available_switches

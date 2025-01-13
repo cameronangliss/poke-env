@@ -239,6 +239,8 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
         active_mon = battle.active_pokemon[pos]
         if order is None:
             return active_mon is None
+        elif isinstance(order, ForfeitBattleOrder):
+            return True
         elif order.order is None:
             return False
         elif isinstance(order.order, Pokemon):
