@@ -93,15 +93,10 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
         :return: The battle order for the given action in context of the current battle.
         :rtype: BattleOrder
         """
-        try:
-            action_order_map = SinglesEnv.get_action_order_map(battle)
-            order = action_order_map[action]
-            if SinglesEnv.is_valid_order(order, battle):
-                return order
-            else:
-                return Player.choose_random_move(battle)
-        except IndexError:
-            return Player.choose_random_move(battle)
+        action_order_map = SinglesEnv.get_action_order_map(battle)
+        order = action_order_map[action]
+        assert SinglesEnv.is_valid_order(order, battle)
+        return order
 
     @staticmethod
     def order_to_action(order: BattleOrder, battle: Battle) -> np.int64:
