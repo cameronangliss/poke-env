@@ -198,30 +198,38 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
         action_order_map[np.int64(-1)] = ForfeitBattleOrder()
         action_order_map[np.int64(0)] = None
         for switch in range(num_switches):
-            action_order_map[np.int64(1 + switch)] = Player.create_order(
-                list(battle.team.values())[switch]
-            )
+            if len(battle.team) > switch:
+                action_order_map[np.int64(1 + switch)] = Player.create_order(
+                    list(battle.team.values())[switch]
+                )
         active_mon = battle.active_pokemon[pos]
         if active_mon is not None:
+            mvs = (
+                battle.available_moves[pos]
+                if len(battle.available_moves[pos]) == 1
+                and battle.available_moves[pos][0].id in ["struggle", "recharge"]
+                else list(active_mon.moves.values())
+            )
             for target in range(num_targets):
                 for gimmick in range(num_gimmicks):
                     for move in range(num_moves):
-                        action_order_map[
-                            np.int64(
-                                1
-                                + num_switches
-                                + num_moves * num_gimmicks * target
-                                + num_moves * gimmick
-                                + move
+                        if len(mvs) > move:
+                            action_order_map[
+                                np.int64(
+                                    1
+                                    + num_switches
+                                    + num_moves * num_gimmicks * target
+                                    + num_moves * gimmick
+                                    + move
+                                )
+                            ] = Player.create_order(
+                                list(active_mon.moves.values())[move],
+                                mega=gimmick == 1,
+                                z_move=gimmick == 2,
+                                dynamax=gimmick == 3,
+                                terastallize=gimmick == 4,
+                                move_target=target - 2,
                             )
-                        ] = Player.create_order(
-                            list(active_mon.moves.values())[move],
-                            mega=gimmick == 1,
-                            z_move=gimmick == 2,
-                            dynamax=gimmick == 3,
-                            terastallize=gimmick == 4,
-                            move_target=target - 2,
-                        )
         return action_order_map
 
     @staticmethod

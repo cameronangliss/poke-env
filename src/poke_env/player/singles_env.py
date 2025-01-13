@@ -125,9 +125,10 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
         action_order_map: bidict[np.int64, BattleOrder] = bidict()
         action_order_map[np.int64(-1)] = ForfeitBattleOrder()
         for switch in range(num_switches):
-            action_order_map[np.int64(switch)] = Player.create_order(
-                list(battle.team.values())[switch]
-            )
+            if len(battle.team) > switch:
+                action_order_map[np.int64(switch)] = Player.create_order(
+                    list(battle.team.values())[switch]
+                )
         active_mon = battle.active_pokemon
         if active_mon is not None:
             mvs = (
@@ -138,15 +139,16 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
             )
             for gimmick in range(num_gimmicks):
                 for move in range(num_moves):
-                    action_order_map[
-                        np.int64(num_switches + num_moves * gimmick + move)
-                    ] = Player.create_order(
-                        mvs[move],
-                        mega=gimmick == 1,
-                        z_move=gimmick == 2,
-                        dynamax=gimmick == 3,
-                        terastallize=gimmick == 4,
-                    )
+                    if len(mvs) > move:
+                        action_order_map[
+                            np.int64(num_switches + num_moves * gimmick + move)
+                        ] = Player.create_order(
+                            mvs[move],
+                            mega=gimmick == 1,
+                            z_move=gimmick == 2,
+                            dynamax=gimmick == 3,
+                            terastallize=gimmick == 4,
+                        )
         return action_order_map
 
     @staticmethod
