@@ -5,6 +5,7 @@ For a black-box implementation consider using the module env_player.
 import asyncio
 import time
 from abc import abstractmethod
+from concurrent.futures import Future
 from typing import Any, Awaitable, Dict, Generic, List, Optional, Tuple, TypeVar, Union
 from weakref import WeakKeyDictionary
 
@@ -229,7 +230,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             WeakKeyDictionary()
         )
         self._keep_challenging: bool = False
-        self._challenge_task = None
+        self._challenge_task: Optional[Future[None]] = None
 
     def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
@@ -325,15 +326,17 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self.agents = [self.agent1.username, self.agent2.username]
         # TODO: use the seed
         # Connect if disconnected
-        ps_client1 = self.agent1.ps_client
-        if not ps_client1.logged_in.is_set():
-            ps_client1._listening_coroutine = asyncio.run_coroutine_threadsafe(
-                ps_client1.listen(), POKE_LOOP
+        if self.agent1.ps_client._listening_coroutine is None:
+            self.agent1.ps_client._listening_coroutine = (
+                asyncio.run_coroutine_threadsafe(
+                    self.agent1.ps_client.listen(), POKE_LOOP
+                )
             )
-        ps_client2 = self.agent1.ps_client
-        if not ps_client2.logged_in.is_set():
-            ps_client2._listening_coroutine = asyncio.run_coroutine_threadsafe(
-                ps_client2.listen(), POKE_LOOP
+        if self.agent2.ps_client._listening_coroutine is None:
+            self.agent2.ps_client._listening_coroutine = (
+                asyncio.run_coroutine_threadsafe(
+                    self.agent2.ps_client.listen(), POKE_LOOP
+                )
             )
         if self._challenge_task is None:
             self.start_challenging()
