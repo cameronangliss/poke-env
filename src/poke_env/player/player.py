@@ -114,7 +114,7 @@ class Player(ABC):
         :type team: str or Teambuilder, optional
         """
         if account_configuration is None:
-            account_configuration = AccountConfiguration.generate_config()
+            account_configuration = AccountConfiguration.generate_config(10)
 
         if server_configuration is None:
             server_configuration = LocalhostServerConfiguration
