@@ -124,12 +124,10 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         ] = LocalhostServerConfiguration,
         accept_open_team_sheet: Optional[bool] = False,
         start_timer_on_battle_start: bool = False,
-        start_listening: bool = True,
         open_timeout: Optional[float] = 10.0,
         ping_interval: Optional[float] = 20.0,
         ping_timeout: Optional[float] = 20.0,
         team: Optional[Union[str, Teambuilder]] = None,
-        start_challenging: bool = False,
         strict: bool = True,
     ):
         """
@@ -190,12 +188,10 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self._server_configuration = server_configuration
         self._accept_open_team_sheet = accept_open_team_sheet
         self._start_timer_on_battle_start = start_timer_on_battle_start
-        self._start_listening = start_listening
         self._open_timeout = open_timeout
         self._ping_interval = ping_interval
         self._ping_timeout = ping_timeout
         self._team = team
-        self._start_challenging = start_challenging
         self._strict = strict
         self.agent1 = _EnvPlayer(
             account_configuration=account_configuration1,
@@ -207,7 +203,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             server_configuration=server_configuration,
             accept_open_team_sheet=accept_open_team_sheet,
             start_timer_on_battle_start=start_timer_on_battle_start,
-            start_listening=start_listening,
             open_timeout=open_timeout,
             ping_interval=ping_interval,
             ping_timeout=ping_timeout,
@@ -223,7 +218,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             server_configuration=server_configuration,
             accept_open_team_sheet=accept_open_team_sheet,
             start_timer_on_battle_start=start_timer_on_battle_start,
-            start_listening=start_listening,
             ping_interval=ping_interval,
             ping_timeout=ping_timeout,
             team=team,
@@ -237,11 +231,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         )
         self._keep_challenging: bool = False
         self._challenge_task = None
-        if start_challenging:
-            self._keep_challenging = True
-            self._challenge_task = asyncio.run_coroutine_threadsafe(
-                self._challenge_loop(), POKE_LOOP
-            )
 
     def __getstate__(self) -> Dict[str, Any]:
         state = self.__dict__.copy()
@@ -263,7 +252,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             server_configuration=self._server_configuration,
             accept_open_team_sheet=self._accept_open_team_sheet,
             start_timer_on_battle_start=self._start_timer_on_battle_start,
-            start_listening=self._start_listening,
             open_timeout=self._open_timeout,
             ping_interval=self._ping_interval,
             ping_timeout=self._ping_timeout,
@@ -279,15 +267,11 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             server_configuration=self._server_configuration,
             accept_open_team_sheet=self._accept_open_team_sheet,
             start_timer_on_battle_start=self._start_timer_on_battle_start,
-            start_listening=self._start_listening,
             ping_interval=self._ping_interval,
             ping_timeout=self._ping_timeout,
             team=self._team,
         )
         self._reward_buffer = WeakKeyDictionary()
-        self._challenge_task = asyncio.run_coroutine_threadsafe(
-            self._challenge_loop(), POKE_LOOP
-        )
 
     ###################################################################################
     # PettingZoo API
@@ -339,6 +323,19 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
     ) -> Tuple[Dict[str, ObsType], Dict[str, Dict[str, Any]]]:
         self.agents = [self.agent1.username, self.agent2.username]
         # TODO: use the seed
+        # Connect if disconnected
+        ps_client1 = self.agent1.ps_client
+        if not ps_client1.logged_in.is_set():
+            ps_client1._listening_coroutine = asyncio.run_coroutine_threadsafe(
+                ps_client1.listen(), POKE_LOOP
+            )
+        ps_client2 = self.agent1.ps_client
+        if not ps_client2.logged_in.is_set():
+            ps_client2._listening_coroutine = asyncio.run_coroutine_threadsafe(
+                ps_client2.listen(), POKE_LOOP
+            )
+        if self._challenge_task is None:
+            self.start_challenging()
         if not self.agent1.battle or not self.agent2.battle:
             count = self._INIT_RETRIES
             while not self.agent1.battle or not self.agent2.battle:
