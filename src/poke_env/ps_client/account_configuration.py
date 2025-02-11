@@ -13,7 +13,7 @@ class AccountConfiguration(NamedTuple):
 
     username: str
     password: Optional[str]
-    char_space = string.ascii_lowercase + string.digits
+    char_space: str = string.ascii_lowercase + string.digits
 
     @classmethod
     def generate_config(cls) -> AccountConfiguration:
