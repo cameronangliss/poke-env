@@ -1,8 +1,8 @@
 """This module defines a base class for communicating with showdown servers."""
 
+import asyncio
 import json
 import logging
-from concurrent.futures import Future
 from asyncio import CancelledError, Event, Lock, create_task, sleep
 from logging import Logger
 from time import perf_counter
@@ -39,6 +39,7 @@ class PSClient:
         avatar: Optional[str] = None,
         log_level: Optional[int] = None,
         server_configuration: ServerConfiguration,
+        start_listening: bool = True,
         open_timeout: Optional[float] = 10.0,
         ping_interval: Optional[float] = 20.0,
         ping_timeout: Optional[float] = 20.0,
@@ -86,7 +87,10 @@ class PSClient:
         self.websocket: ClientConnection
         self._logger: Logger = self._create_logger(log_level)
 
-        self._listening_coroutine: Future[None]
+        if start_listening:
+            self._listening_coroutine = asyncio.run_coroutine_threadsafe(
+                self.listen(), POKE_LOOP
+            )
 
     async def accept_challenge(self, username: str, packed_team: Optional[str]):
         assert self.logged_in.is_set(), f"Expected {self.username} to be logged in."
