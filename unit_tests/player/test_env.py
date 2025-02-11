@@ -73,7 +73,7 @@ def test_async_player():
 
 
 def render(battle):
-    player = CustomEnv(start_listening=False)
+    player = CustomEnv()
     captured_output = StringIO()
     sys.stdout = captured_output
     player.battle1 = battle
@@ -111,7 +111,6 @@ def test_init():
         account_configuration1=account_configuration1,
         account_configuration2=account_configuration2,
         server_configuration=server_configuration,
-        start_listening=False,
         battle_format="gen7randombattles",
     )
     player = gymnasium_env.agent1
@@ -298,8 +297,6 @@ def test_action_space():
     ):
         p = SinglesEnv(
             battle_format=f"gen{gen}randombattle",
-            start_listening=False,
-            start_challenging=False,
         )
         assert p.action_space(p.possible_agents[0]) == Discrete(
             4 * sum([1, has_megas, has_z_moves, has_dynamax]) + 6
@@ -318,11 +315,7 @@ def test_singles_action_order_conversions():
         ],
         start=4,
     ):
-        p = SinglesEnv(
-            battle_format=f"gen{gen}randombattle",
-            start_listening=False,
-            start_challenging=False,
-        )
+        p = SinglesEnv(battle_format=f"gen{gen}randombattle")
         battle = Battle("bat1", p.agent1.username, p.agent1.logger, gen=gen)
         active_pokemon = Pokemon(species="charizard", gen=gen)
         move = Move("flamethrower", gen=gen)
