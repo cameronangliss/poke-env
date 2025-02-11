@@ -123,7 +123,6 @@ def test_pickle():
         account_configuration1=account_configuration1,
         account_configuration2=account_configuration2,
         server_configuration=server_configuration,
-        start_listening=False,
         battle_format="gen7randombattles",
     )
     pickle.loads(pickle.dumps(env))
@@ -134,9 +133,7 @@ async def run_test_choose_move():
         account_configuration1=account_configuration1,
         account_configuration2=account_configuration2,
         server_configuration=server_configuration,
-        start_listening=False,
         battle_format="gen7randombattles",
-        start_challenging=False,
     )
     # Create a mock battle and moves
     battle = Battle("bat1", player.agent1.username, player.agent1.logger, gen=8)
@@ -163,7 +160,6 @@ def test_reward_computing_helper():
         account_configuration1=account_configuration1,
         account_configuration2=account_configuration2,
         server_configuration=server_configuration,
-        start_listening=False,
         battle_format="gen7randombattles",
     )
     battle_1 = Battle("bat1", player.agent1.username, player.agent1.logger, gen=8)
