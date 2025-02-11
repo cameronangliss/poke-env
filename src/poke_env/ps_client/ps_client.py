@@ -87,6 +87,7 @@ class PSClient:
         self.websocket: ClientConnection
         self._logger: Logger = self._create_logger(log_level)
 
+        self._listening_coroutine = None
         if start_listening:
             self._listening_coroutine = asyncio.run_coroutine_threadsafe(
                 self.listen(), POKE_LOOP
