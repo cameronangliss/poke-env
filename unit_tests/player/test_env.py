@@ -278,7 +278,7 @@ def test_reward_computing_helper():
 
 
 def test_action_space():
-    player = CustomEnv(battle_format="gen7randombattle", start_listening=False)
+    player = CustomEnv(battle_format="gen7randombattle")
     assert player.action_space(player.possible_agents[0]) == Discrete(18)
 
     for gen, (has_megas, has_z_moves, has_dynamax) in enumerate(
