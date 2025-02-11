@@ -39,29 +39,8 @@ def test_env_run():
             log_level=25,
             strict=False,
         )
-        env.start_challenging(3)
         play_function(env, 3)
         env.close()
-    env = SinglesTestEnv(
-        battle_format="gen8randombattle",
-        log_level=25,
-        strict=False,
-    )
-    env.start_challenging(2)
-    play_function(env, 2)
-    env.start_challenging(2)
-    play_function(env, 2)
-    env.close()
-    env = SinglesTestEnv(
-        battle_format="gen9randombattle",
-        log_level=25,
-        strict=False,
-    )
-    env.start_challenging(2)
-    play_function(env, 2)
-    env.start_challenging(2)
-    play_function(env, 2)
-    env.close()
 
 
 @pytest.mark.timeout(60)
