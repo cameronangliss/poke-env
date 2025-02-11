@@ -122,7 +122,7 @@ Now that our custom class is defined, we can instantiate our RL player and test 
 
     opponent = RandomPlayer(battle_format="gen8randombattle")
     test_env = SimpleRLPlayer(
-        battle_format="gen8randombattle", opponent=opponent, start_challenging=True
+        battle_format="gen8randombattle", opponent=opponent
     )
     check_env(test_env)
     test_env.close()
@@ -145,11 +145,11 @@ In this case, we want them to start challenging right away:
 
     opponent = RandomPlayer(battle_format="gen8randombattle")
     train_env = SimpleRLPlayer(
-        battle_format="gen8randombattle", opponent=opponent, start_challenging=True
+        battle_format="gen8randombattle", opponent=opponent
     )
     opponent = RandomPlayer(battle_format="gen8randombattle")
     eval_env = SimpleRLPlayer(
-        battle_format="gen8randombattle", opponent=opponent, start_challenging=True
+        battle_format="gen8randombattle", opponent=opponent
     )
     ...
 
