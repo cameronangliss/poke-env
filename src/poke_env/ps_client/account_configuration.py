@@ -1,8 +1,10 @@
 """This module contains objects related to player configuration."""
 
-from typing import Counter, NamedTuple, Optional
+from __future__ import annotations
 
-CONFIGURATION_FROM_PLAYER_COUNTER: Counter[str] = Counter()
+import random
+import string
+from typing import NamedTuple, Optional
 
 
 class AccountConfiguration(NamedTuple):
@@ -11,3 +13,9 @@ class AccountConfiguration(NamedTuple):
 
     username: str
     password: Optional[str]
+    char_space = string.ascii_letters + string.digits
+
+    @classmethod
+    def generate_config(cls) -> AccountConfiguration:
+        username = "".join(random.choices(cls.char_space, k=18))
+        return AccountConfiguration(username, None)

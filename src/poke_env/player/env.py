@@ -74,12 +74,9 @@ class _EnvPlayer(Player):
 
     def __init__(
         self,
-        username: str,
         **kwargs: Any,
     ):
-        self.__class__.__name__ = username
         super().__init__(**kwargs)
-        self.__class__.__name__ = "_EnvPlayer"
         self.battle_queue = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
         self.order_queue = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
         self.battle: Optional[AbstractBattle] = None
@@ -201,7 +198,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self._start_challenging = start_challenging
         self._strict = strict
         self.agent1 = _EnvPlayer(
-            username=self.__class__.__name__,  # type: ignore
             account_configuration=account_configuration1,
             avatar=avatar,
             battle_format=battle_format,
@@ -218,7 +214,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             team=team,
         )
         self.agent2 = _EnvPlayer(
-            username=self.__class__.__name__,  # type: ignore
             account_configuration=account_configuration2,
             avatar=avatar,
             battle_format=battle_format,
@@ -259,7 +254,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
     def __setstate__(self, state: Dict[str, Any]):
         self.__dict__.update(state)
         self.agent1 = _EnvPlayer(
-            username=self.__class__.__name__,  # type: ignore
             account_configuration=self._account_configuration1,
             avatar=self._avatar,
             battle_format=self._battle_format,
@@ -276,7 +270,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             team=self._team,
         )
         self.agent2 = _EnvPlayer(
-            username=self.__class__.__name__,  # type: ignore
             account_configuration=self._account_configuration2,
             avatar=self._avatar,
             battle_format=self._battle_format,
