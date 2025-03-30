@@ -428,14 +428,17 @@ class Player(ABC):
         try_again: bool = False,
     ):
         if try_again and (
-            "zoroark" in [p.base_species for p in battle.team.values()]
+            "illusion" in [p.ability for p in battle.team.values()]
             or random.random() < self.DEFAULT_CHOICE_CHANCE
         ):
             message = self.choose_default_move().message
         elif battle.teampreview:
             if not from_teampreview_request:
                 return
-            message = self.teampreview(battle)
+            m = self.teampreview(battle)
+            if isinstance(m, Awaitable):
+                m = await m
+            message = m
         else:
             if try_again:
                 self.trying_again.set()
@@ -832,7 +835,7 @@ class Player(ABC):
                 )
         self._battles = {}
 
-    def teampreview(self, battle: AbstractBattle) -> str:
+    def teampreview(self, battle: AbstractBattle) -> Union[str, Awaitable[str]]:
         """Returns a teampreview order for the given battle.
 
         This order must be of the form /team TEAM, where TEAM is a string defining the
