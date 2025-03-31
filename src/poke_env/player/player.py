@@ -154,7 +154,7 @@ class Player(ABC):
         self._challenge_queue: Queue[Any] = create_in_poke_loop(Queue, loop)
         self._team: Optional[Teambuilder] = None
 
-        self.trying_again = create_in_poke_loop(Event, loop)
+        self.trying_again: Event = create_in_poke_loop(Event, loop)
 
         if isinstance(team, Teambuilder):
             self._team = team
@@ -427,7 +427,7 @@ class Player(ABC):
             if isinstance(choice, Awaitable):
                 choice = await choice
             message = choice.message
-
+        self.trying_again.clear()
         if not battle._wait:
             await self.ps_client.send_message(message, battle.battle_tag)
 
