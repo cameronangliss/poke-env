@@ -28,10 +28,10 @@ async def test_random_players():
 
 
 @pytest.mark.asyncio
-async def test_random_players_in_doubles():
+async def test_random_players_in_doubles(showdown_format_teams):
     players = [
-        RandomPlayer(battle_format="gen9randomdoublesbattle"),
-        RandomPlayer(battle_format="gen9randomdoublesbattle"),
+        RandomPlayer(battle_format="gen9vgc2025regg", team=showdown_format_teams["gen9vgc2025regg"][0]),
+        RandomPlayer(battle_format="gen9vgc2025regg", team=showdown_format_teams["gen9vgc2025regg"][1]),
     ]
     await asyncio.wait_for(simple_cross_evaluation(100, players=players), timeout=100)
 
