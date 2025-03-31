@@ -33,7 +33,7 @@ async def test_random_players_in_doubles():
         RandomPlayer(battle_format="gen9randomdoublesbattle"),
         RandomPlayer(battle_format="gen9randomdoublesbattle"),
     ]
-    await asyncio.wait_for(simple_cross_evaluation(5, players=players), timeout=5)
+    await asyncio.wait_for(simple_cross_evaluation(100, players=players), timeout=100)
 
 
 @pytest.mark.asyncio
