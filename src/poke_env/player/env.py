@@ -59,25 +59,22 @@ class _AsyncQueue(Generic[ItemType]):
     def get_timeout(self, timeout_flag: asyncio.Event) -> Optional[ItemType]:
         tasks = [
             asyncio.ensure_future(self.async_get(), loop=self.loop),
-            asyncio.ensure_future(asyncio.wait_for(timeout_flag.wait(), timeout=1), loop=self.loop),
+            asyncio.ensure_future(timeout_flag.wait(), loop=self.loop),
         ]
-        try:
-            done, pending = asyncio.run_coroutine_threadsafe(
-                asyncio.wait(
-                    tasks,
-                    return_when=asyncio.FIRST_COMPLETED,
-                ),
-                self.loop,
-            ).result()
-            for task in pending:
-                task.cancel()
-            result = list(done)[0].result()
-            if result is True:
-                return None
-            else:
-                return result
-        except asyncio.exceptions.TimeoutError:
+        done, pending = asyncio.run_coroutine_threadsafe(
+            asyncio.wait(
+                tasks,
+                return_when=asyncio.FIRST_COMPLETED,
+            ),
+            self.loop,
+        ).result()
+        for task in pending:
+            task.cancel()
+        result = list(done)[0].result()
+        if result is True:
             return None
+        else:
+            return result
 
     async def async_put(self, item: ItemType):
         await self.queue.put(item)
