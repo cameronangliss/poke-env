@@ -66,7 +66,6 @@ class _AsyncQueue(Generic[ItemType]):
         for task in pending:
             task.cancel()
         result = list(done)[0].result()
-        timeout_flag.clear()
         if result is True:
             return None
         else:

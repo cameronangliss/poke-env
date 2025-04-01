@@ -367,6 +367,11 @@ class Player(ABC):
                 ):
                     await self._handle_battle_request(battle, maybe_default_order=True)
                 elif split_message[2].startswith(
+                    "[Invalid choice] Can't switch: You sent more switches than "
+                    "Pokémon that need to switch"
+                ):
+                    await self._handle_battle_request(battle, maybe_default_order=True)
+                elif split_message[2].startswith(
                     "[Invalid choice] Can't move: Invalid target for"
                 ):
                     await self._handle_battle_request(battle, maybe_default_order=True)
