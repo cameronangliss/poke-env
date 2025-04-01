@@ -2,16 +2,33 @@ from typing import Any, Awaitable, Dict, Optional, Tuple
 
 from gymnasium import Env
 
-from poke_env.environment.double_battle import DoubleBattle
+from poke_env.environment.abstract_battle import AbstractBattle
 from poke_env.player.battle_order import BattleOrder
 from poke_env.player.env import ActionType, ObsType, PokeEnv, _EnvPlayer
 from poke_env.player.player import Player
 
 
+class _EnvPlayerWrapper(_EnvPlayer):
+    def __init__(self, agent: _EnvPlayer, player: Player):
+        self.agent = agent
+        self.agent._env_move = self._env_move  # type: ignore [method-assign]
+        self.player = player
+
+    def __getattr__(self, name: str):
+        return getattr(self.agent, name)
+
+    async def _env_move(self, battle: AbstractBattle) -> BattleOrder:
+        await _EnvPlayer._env_move(self.agent, battle)
+        order = self.player.choose_move(battle)
+        if isinstance(order, Awaitable):
+            order = await order
+        return order
+
+
 class SingleAgentWrapper(Env[ObsType, ActionType]):
     def __init__(self, env: PokeEnv[ObsType, ActionType], opponent: Player):
         self.env = env
-        self.opponent = opponent
+        self.env.agent2 = _EnvPlayerWrapper(self.env.agent2, opponent)
         self.observation_space = list(env.observation_spaces.values())[0]
         self.action_space = list(env.action_spaces.values())[0]
         self.first_teampreview_order: Optional[BattleOrder] = None
@@ -19,30 +36,9 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
     def step(
         self, action: ActionType
     ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
-        assert self.env.battle2 is not None
-        if not self.env.battle2.teampreview:
-            battle = self.env.battle2
-            opp_order = self.opponent.choose_move(battle)
-            assert not isinstance(opp_order, Awaitable)
-        elif self.first_teampreview_order is None:
-            battle = self.env.battle2
-            opp_order = self.opponent.choose_move(battle)
-            assert not isinstance(opp_order, Awaitable)
-            self.first_teampreview_order = opp_order
-        else:
-            assert isinstance(self.env.battle2, DoubleBattle)
-            battle = _EnvPlayer._simulate_teampreview_switchin(
-                self.first_teampreview_order, self.env.battle2
-            )
-            opp_order = self.opponent.choose_move(battle)
-            assert not isinstance(opp_order, Awaitable)
-            self.first_teampreview_order = None
-        opp_action = self.env.order_to_action(
-            opp_order, battle, fake=self.env._fake, strict=self.env._strict
-        )
         actions = {
             self.env.agent1.username: action,
-            self.env.agent2.username: opp_action,
+            self.env.agent2.username: self.action_space.sample(),
         }
         obs, rewards, terms, truncs, infos = self.env.step(actions)
         return (

@@ -456,16 +456,21 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             self._np_random, seed = seeding.np_random(seed)
         if self.battle1 and not self.battle1.finished:
             assert self.battle2 is not None
-            if self.agent1.waiting and not self.battle1._wait:
-                self.agent1.order_queue.put(ForfeitBattleOrder())
-                if self.agent2.waiting:
-                    self.agent2.order_queue.put(DefaultBattleOrder())
-            elif self.agent2.waiting and not self.battle2._wait:
-                self.agent2.order_queue.put(ForfeitBattleOrder())
-                if self.agent1.waiting:
-                    self.agent1.order_queue.put(DefaultBattleOrder())
-            self.agent1.battle_queue.get()
-            self.agent2.battle_queue.get()
+            if self.battle1 == self.agent1.battle:
+                if self.agent1.waiting and not self.battle1._wait:
+                    self.agent1.order_queue.put(ForfeitBattleOrder())
+                    if self.agent2.waiting:
+                        self.agent2.order_queue.put(DefaultBattleOrder())
+                elif self.agent2.waiting and not self.battle2._wait:
+                    self.agent2.order_queue.put(ForfeitBattleOrder())
+                    if self.agent1.waiting:
+                        self.agent1.order_queue.put(DefaultBattleOrder())
+                self.agent1.battle_queue.get()
+                self.agent2.battle_queue.get()
+            else:
+                raise RuntimeError(
+                    "Environment and agent aren't synchronized. Try to restart"
+                )
         self._challenge_task = asyncio.run_coroutine_threadsafe(
             self.agent1.battle_against(self.agent2, n_battles=1), self.loop
         )
