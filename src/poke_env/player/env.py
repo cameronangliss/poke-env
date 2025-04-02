@@ -421,12 +421,8 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                     raise RuntimeError("Agent is not challenging")
                 count -= 1
                 time.sleep(self._TIME_BETWEEN_RETRIES)
-        while self.battle1 == self.agent1.battle or self.battle2 == self.agent2.battle:
-            time.sleep(0.01)
-        while not self.battle1 or self.battle1 != self.agent1.battle:
-            self.battle1 = self.agent1.battle_queue.get()
-        while not self.battle2 or self.battle2 != self.agent2.battle:
-            self.battle2 = self.agent2.battle_queue.get()
+        self.battle1 = self.agent1.battle_queue.get()
+        self.battle2 = self.agent2.battle_queue.get()
         observations = {
             self.agents[0]: self.embed_battle(self.battle1),
             self.agents[1]: self.embed_battle(self.battle2),
