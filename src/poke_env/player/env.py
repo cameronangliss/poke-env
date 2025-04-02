@@ -341,7 +341,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                 raise RuntimeError(
                     "Environment and agent aren't synchronized. Try to restart"
                 )
-        while self.agent1.battle == self.battle1 or self.agent2.battle == self.battle2:
+        while self.battle1 == self.agent1.battle or self.battle2 == self.agent2.battle:
             time.sleep(0.01)
         while not self.battle1 or self.battle1 != self.agent1.battle:
             self.battle1 = self.agent1.battle_queue.get()
