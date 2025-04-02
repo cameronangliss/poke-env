@@ -396,6 +396,12 @@ class Player(ABC):
                     "[Invalid choice] Can't move: You can only Terastallize once per battle."
                 ):
                     await self._handle_battle_request(battle, maybe_default_order=True)
+                elif split_message[2].startswith(
+                    "[Invalid choice] Can't choose for Team Preview"
+                ):
+                    await self._handle_battle_request(
+                        battle, from_teampreview_request=True, maybe_default_order=True
+                    )
                 else:
                     self.logger.critical("Unexpected error message: %s", split_message)
             elif split_message[1] == "turn":
