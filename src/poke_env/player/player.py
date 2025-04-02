@@ -303,9 +303,14 @@ class Player(ABC):
                 if split_message[2].startswith(
                     "[Invalid choice] Sorry, too late to make a different move"
                 ):
-                    if isinstance(battle, Battle) and battle.trapped:
-                        self.trying_again.set()
-                        await self._handle_battle_request(battle)
+                    if isinstance(battle, Battle):
+                        if battle.trapped:
+                            self.trying_again.set()
+                            await self._handle_battle_request(battle)
+                    else:
+                        await self.ps_client.send_message(
+                            DefaultBattleOrder().message, battle.battle_tag
+                        )
                 elif split_message[2].startswith(
                     "[Unavailable choice] Can't switch: The active Pokémon is "
                     "trapped"
@@ -314,8 +319,12 @@ class Player(ABC):
                 ):
                     if isinstance(battle, Battle):
                         battle.trapped = True
-                    self.trying_again.set()
-                    await self._handle_battle_request(battle)
+                        self.trying_again.set()
+                        await self._handle_battle_request(battle)
+                    else:
+                        await self.ps_client.send_message(
+                            DefaultBattleOrder().message, battle.battle_tag
+                        )
                 elif split_message[2].startswith("[Invalid choice] Can't pass: "):
                     await self._handle_battle_request(battle, maybe_default_order=True)
                 elif split_message[2].startswith(
