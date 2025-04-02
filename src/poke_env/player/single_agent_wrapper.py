@@ -31,7 +31,6 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         self.env.agent2 = _EnvPlayerWrapper(self.env.agent2, opponent)
         self.observation_space = list(env.observation_spaces.values())[0]
         self.action_space = list(env.action_spaces.values())[0]
-        self.first_teampreview_order: Optional[BattleOrder] = None
 
     def step(
         self, action: ActionType
