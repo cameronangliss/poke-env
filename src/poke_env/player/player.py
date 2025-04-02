@@ -289,9 +289,6 @@ class Player(ABC):
                 if split_message[2]:
                     request = orjson.loads(split_message[2])
                     battle.parse_request(request)
-                    if battle.move_on_next_request:
-                        await self._handle_battle_request(battle)
-                        battle.move_on_next_request = False
             elif split_message[1] == "showteam":
                 role = split_message[2]
                 pokemon_messages = "|".join(split_message[3:]).split("]")
@@ -415,6 +412,9 @@ class Player(ABC):
                 self.logger.warning("Received 'bigerror' message: %s", split_message)
             else:
                 battle.parse_message(split_message)
+                if split_messages[-1] == split_message and battle.move_on_next_request:
+                    await self._handle_battle_request(battle)
+                    battle.move_on_next_request = False
 
     async def _handle_battle_request(
         self,
