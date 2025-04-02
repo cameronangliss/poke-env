@@ -285,7 +285,9 @@ class Player(ABC):
                     request = orjson.loads(split_message[2])
                     battle.parse_request(request)
                     if battle.default_on_next_move:
-                        await self.ps_client.send_message(DefaultBattleOrder().message, battle.battle_tag)
+                        await self.ps_client.send_message(
+                            DefaultBattleOrder().message, battle.battle_tag
+                        )
                         battle._default_on_next_move = False
             elif split_message[1] == "win" or split_message[1] == "tie":
                 if split_message[1] == "win":
