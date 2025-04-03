@@ -78,6 +78,7 @@ class AbstractBattle(ABC):
         "_can_z_move",
         "_current_observation",
         "_data",
+        "_default_on_next_move",
         "_dynamax_turn",
         "_fields",
         "_finished",
@@ -154,6 +155,7 @@ class AbstractBattle(ABC):
 
         # Turn choice attributes
         self.in_team_preview: bool = False
+        self._default_on_next_move: bool = False
         self._move_on_next_request: bool = False
         self._wait: Optional[bool] = None
 
@@ -1436,6 +1438,10 @@ class AbstractBattle(ABC):
         :rtype: Optional[bool]
         """
         return self._won
+
+    @property
+    def default_on_next_move(self) -> bool:
+        return self._default_on_next_move
 
     @property
     def move_on_next_request(self) -> bool:
