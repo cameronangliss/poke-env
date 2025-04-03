@@ -315,7 +315,9 @@ class Player(ABC):
                 ):
                     battle._default_on_next_move = True
                 elif split_message[2].startswith("[Invalid choice] Can't pass: "):
-                    battle._default_on_next_move = True
+                    await self.ps_client.send_message(
+                        DefaultBattleOrder().message, battle.battle_tag
+                    )
                 elif split_message[2].startswith(
                     "[Invalid choice] Can't switch: You can't switch to an active "
                     "Pokémon"
