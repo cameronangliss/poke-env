@@ -118,7 +118,6 @@ class _EnvPlayer(Player):
         return self._teampreview(battle)
 
     async def _teampreview(self, battle: AbstractBattle) -> str:
-        self.battle = battle
         if isinstance(battle, Battle):
             return self.random_teampreview(battle)
         elif isinstance(battle, DoubleBattle):
