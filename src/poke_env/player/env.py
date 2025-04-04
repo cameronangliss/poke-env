@@ -172,9 +172,9 @@ class _EnvPlayer(Player):
             return DefaultBattleOrder()
         await self.battle_queue.async_put(battle)
         self.waiting = True
-        action = await self.order_queue.async_get()
+        order = await self.order_queue.async_get()
         self.waiting = False
-        return action
+        return order
 
     def _battle_finished_callback(self, battle: AbstractBattle):
         asyncio.run_coroutine_threadsafe(
@@ -483,8 +483,16 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                     raise RuntimeError("Agent is not challenging")
                 count -= 1
                 time.sleep(self._TIME_BETWEEN_RETRIES)
+        while self.battle1 == self.agent1.battle or self.battle2 == self.agent2.battle:
+            time.sleep(0.01)
         self.battle1 = self.agent1.battle_queue.get()
         self.battle2 = self.agent2.battle_queue.get()
+        assert (
+            self.battle1 == self.agent1.battle
+        ), f"{self.battle1.battle_tag} != {self.agent1.battle.battle_tag}"
+        assert (
+            self.battle2 == self.agent2.battle
+        ), f"{self.battle2.battle_tag} != {self.agent2.battle.battle_tag}"
         observations = {
             self.agents[0]: self.embed_battle(self.battle1),
             self.agents[1]: self.embed_battle(self.battle2),
