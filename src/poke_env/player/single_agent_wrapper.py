@@ -22,8 +22,8 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         opp_action = self.env.order_to_action(
             opp_order,
             self.env.agent2.battle,
-            fake=self.env.fake,
-            strict=self.env.strict,
+            fake=self.env._fake,
+            strict=self.env._strict,
         )
         actions = {
             self.env.agent1.username: action,
