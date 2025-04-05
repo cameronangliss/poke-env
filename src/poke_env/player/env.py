@@ -165,9 +165,7 @@ class _EnvPlayer(Player):
     async def _env_move(self, battle: AbstractBattle) -> BattleOrder:
         if not self.battle or self.battle.finished:
             self.battle = battle
-        if self.battle.battle_tag != battle.battle_tag:
-            self.logger.warning(f"Zombie battle {battle.battle_tag}")
-            return DefaultBattleOrder()
+        assert self.battle.battle_tag == battle.battle_tag
         await self.battle_queue.async_put(battle)
         order = await self.order_queue.async_get()
         return order
@@ -491,6 +489,8 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                     raise RuntimeError("Agent is not challenging")
                 count -= 1
                 time.sleep(self._TIME_BETWEEN_RETRIES)
+        while self.battle1 == self.agent1.battle or self.battle2 == self.agent2.battle:
+            time.sleep(0.01)
         self.battle1 = self.agent1.battle_queue.get()
         self.battle2 = self.agent2.battle_queue.get()
         observations = {
