@@ -441,7 +441,6 @@ class Player(ABC):
             if isinstance(choice, Awaitable):
                 choice = await choice
             message = choice.message
-        self._trying_again.clear()
         if hasattr(self.ps_client, "websocket"):
             await self.ps_client.send_message(message, battle.battle_tag)
 
