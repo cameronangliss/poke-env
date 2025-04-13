@@ -36,6 +36,7 @@ class TestEnv(SinglesEnv[npt.NDArray[np.float32]]):
 if __name__ == "__main__":
     gymnasium_env = TestEnv(
         battle_format="gen8randombattle",
+        start_challenging=True,
     )
     parallel_api_test(gymnasium_env)
     gymnasium_env.close()
