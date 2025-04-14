@@ -57,7 +57,7 @@ def single_agent_play_function(env: SingleAgentWrapper, n_battles: int):
             done = terminated or truncated
 
 
-@pytest.mark.timeout(240)
+@pytest.mark.timeout(800)
 def test_env_run():
     for gen in range(4, 10):
         env = SinglesTestEnv(
@@ -65,12 +65,10 @@ def test_env_run():
             log_level=25,
             strict=False,
         )
-        env.start_challenging(3)
-        play_function(env, 3)
+        play_function(env, 100)
         env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
-        env.env.start_challenging(3)
-        single_agent_play_function(env, 3)
+        single_agent_play_function(env, 100)
         env.close()
     for gen in range(8, 10):
         env = DoublesTestEnv(
@@ -78,12 +76,10 @@ def test_env_run():
             log_level=25,
             strict=False,
         )
-        env.start_challenging(3)
-        play_function(env, 3)
+        play_function(env, 100)
         env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
-        env.env.start_challenging(3)
-        single_agent_play_function(env, 3)
+        single_agent_play_function(env, 100)
         env.close()
 
 
@@ -94,9 +90,7 @@ def test_repeated_runs():
         log_level=25,
         strict=False,
     )
-    env.start_challenging(2)
     play_function(env, 2)
-    env.start_challenging(2)
     play_function(env, 2)
     env.close()
     env = SinglesTestEnv(
@@ -104,9 +98,7 @@ def test_repeated_runs():
         log_level=25,
         strict=False,
     )
-    env.start_challenging(2)
     play_function(env, 2)
-    env.start_challenging(2)
     play_function(env, 2)
     env.close()
 
@@ -117,7 +109,6 @@ def test_env_api():
         env = SinglesTestEnv(
             battle_format=f"gen{gen}randombattle",
             log_level=25,
-            start_challenging=True,
             strict=False,
         )
         parallel_api_test(env)
@@ -129,7 +120,6 @@ def test_env_api():
         env = DoublesTestEnv(
             battle_format=f"gen{gen}randomdoublesbattle",
             log_level=25,
-            start_challenging=True,
             strict=False,
         )
         parallel_api_test(env)
