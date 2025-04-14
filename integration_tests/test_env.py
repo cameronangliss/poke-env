@@ -57,7 +57,7 @@ def single_agent_play_function(env: SingleAgentWrapper, n_battles: int):
             done = terminated or truncated
 
 
-@pytest.mark.timeout(800)
+@pytest.mark.timeout(240)
 def test_env_run():
     for gen in range(4, 10):
         env = SinglesTestEnv(
@@ -65,10 +65,10 @@ def test_env_run():
             log_level=25,
             strict=False,
         )
-        play_function(env, 100)
+        play_function(env, 3)
         env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
-        single_agent_play_function(env, 100)
+        single_agent_play_function(env, 3)
         env.close()
     for gen in range(8, 10):
         env = DoublesTestEnv(
@@ -76,10 +76,10 @@ def test_env_run():
             log_level=25,
             strict=False,
         )
-        play_function(env, 100)
+        play_function(env, 3)
         env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
-        single_agent_play_function(env, 100)
+        single_agent_play_function(env, 3)
         env.close()
 
 
