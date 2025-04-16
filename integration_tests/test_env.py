@@ -65,8 +65,8 @@ def test_env_run():
             log_level=25,
             strict=False,
         )
-        env.start_challenging(3)
-        play_function(env, 3)
+        env.start_challenging(10)
+        play_function(env, 10)
         env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
         env.env.start_challenging(3)
