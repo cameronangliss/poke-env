@@ -897,7 +897,11 @@ class Player(ABC):
 
     @property
     def win_rate(self) -> float:
-        return self.n_won_battles / self.n_finished_battles
+        return (
+            self.n_won_battles / self.n_finished_battles
+            if self.n_finished_battles > 0
+            else 0
+        )
 
     @property
     def logger(self) -> Logger:
