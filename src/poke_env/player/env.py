@@ -92,12 +92,10 @@ class _AsyncQueue(Generic[ItemType]):
 
 
 class _EnvPlayer(Player):
-    battle_queue: _AsyncQueue[AbstractBattle]
-    order_queue: _AsyncQueue[BattleOrder]
-
-    def __init__(self, **kwargs: Any):
+    def __init__(self, env: Any, **kwargs: Any):
         super().__init__(**kwargs)
-        self.battle_queue = _AsyncQueue(
+        self.env = env
+        self.obs_queue = _AsyncQueue(
             create_in_poke_loop(asyncio.Queue, self.ps_client.loop, 1),
             self.ps_client.loop,
         )
@@ -122,8 +120,8 @@ class _EnvPlayer(Player):
                 return order1.message
             upd_battle = self._simulate_teampreview_switchin(order1, battle)
             order2 = await self._env_move(upd_battle)
-            action1 = self.order_to_action(order1, battle)  # type: ignore
-            action2 = self.order_to_action(order2, upd_battle)  # type: ignore
+            action1 = self.env.order_to_action(order1, battle)
+            action2 = self.env.order_to_action(order2, upd_battle)
             return f"/team {action1[0]}{action1[1]}{action2[0]}{action2[1]}"
         else:
             raise TypeError()
@@ -164,13 +162,14 @@ class _EnvPlayer(Player):
         if not self.battle or self.battle.finished:
             self.battle = battle
         assert self.battle.battle_tag == battle.battle_tag
-        await self.battle_queue.async_put(battle)
+        obs = self.env.embed_battle(battle)
+        await self.obs_queue.async_put(obs)
         order = await self.order_queue.async_get()
         return order
 
     def _battle_finished_callback(self, battle: AbstractBattle):
         asyncio.run_coroutine_threadsafe(
-            self.battle_queue.async_put(battle), self.ps_client.loop
+            self.obs_queue.async_put(battle), self.ps_client.loop
         )
 
 
@@ -283,6 +282,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self.loop = asyncio.new_event_loop()
         Thread(target=self.loop.run_forever, daemon=True).start()
         self.agent1 = _EnvPlayer(
+            self,
             account_configuration=account_configuration1,
             avatar=avatar,
             battle_format=battle_format,
@@ -302,6 +302,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self.agent1.action_to_order = self.action_to_order  # type: ignore
         self.agent1.order_to_action = self.order_to_action  # type: ignore
         self.agent2 = _EnvPlayer(
+            self,
             account_configuration=account_configuration2,
             avatar=avatar,
             battle_format=battle_format,
@@ -352,6 +353,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self.loop = asyncio.new_event_loop()
         Thread(target=self.loop.run_forever, daemon=True).start()
         self.agent1 = _EnvPlayer(
+            self,
             account_configuration=self._account_configuration1,
             avatar=self._avatar,
             battle_format=self._battle_format,
@@ -368,9 +370,8 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             loop=self.loop,
             team=self._team,
         )
-        self.agent1.action_to_order = self.action_to_order  # type: ignore
-        self.agent1.order_to_action = self.order_to_action  # type: ignore
         self.agent2 = _EnvPlayer(
+            self,
             account_configuration=self._account_configuration2,
             avatar=self._avatar,
             battle_format=self._battle_format,
@@ -386,8 +387,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             loop=self.loop,
             team=self._team,
         )
-        self.agent2.action_to_order = self.action_to_order  # type: ignore
-        self.agent2.order_to_action = self.order_to_action  # type: ignore
         self.agents = [self.agent1.username, self.agent2.username]
         self.possible_agents = [self.agent1.username, self.agent2.username]
         self.observation_spaces: Dict[str, Space[ObsType]] = {
@@ -439,32 +438,29 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                 strict=self._strict,
             )
             self.agent2.order_queue.put(order2)
-        battle1 = self.agent1.battle_queue.race_get(
+        obs1 = self.agent1.obs_queue.race_get(
             self.agent1._waiting, self.agent2._trying_again
         )
-        battle2 = self.agent2.battle_queue.race_get(
+        obs2 = self.agent2.obs_queue.race_get(
             self.agent2._waiting, self.agent1._trying_again
         )
-        self.agent1_to_move = battle1 is not None
-        self.agent2_to_move = battle2 is not None
+        self.agent1_to_move = obs1 is not None
+        self.agent2_to_move = obs2 is not None
         self.agent1._waiting.clear()
         self.agent2._waiting.clear()
-        if battle1 is None:
+        if obs1 is None:
             self.agent2._trying_again.clear()
-            battle1 = self.battle1
-        if battle2 is None:
+            obs1 = self.embed_battle(self.battle1)
+        if obs2 is None:
             self.agent1._trying_again.clear()
-            battle2 = self.battle2
-        observations = {
-            self.agents[0]: self.embed_battle(battle1),
-            self.agents[1]: self.embed_battle(battle2),
-        }
+            obs2 = self.embed_battle(self.battle2)
+        observations = {self.agents[0]: obs1, self.agents[1]: obs2}
         reward = {
-            self.agents[0]: self.calc_reward(battle1),
-            self.agents[1]: self.calc_reward(battle2),
+            self.agents[0]: self.calc_reward(self.battle1),
+            self.agents[1]: self.calc_reward(self.battle2),
         }
-        term1, trunc1 = self.calc_term_trunc(battle1)
-        term2, trunc2 = self.calc_term_trunc(battle2)
+        term1, trunc1 = self.calc_term_trunc(self.battle1)
+        term2, trunc2 = self.calc_term_trunc(self.battle2)
         terminated = {self.agents[0]: term1, self.agents[1]: term2}
         truncated = {self.agents[0]: trunc1, self.agents[1]: trunc2}
         return observations, reward, terminated, truncated, self.get_additional_info()
@@ -497,20 +493,20 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                     assert self.agent2_to_move
                     self.agent2_to_move = False
                     self.agent2.order_queue.put(ForfeitBattleOrder())
-                self.agent1.battle_queue.get()
-                self.agent2.battle_queue.get()
+                self.agent1.obs_queue.get()
+                self.agent2.obs_queue.get()
             else:
                 raise RuntimeError(
                     "Environment and agent aren't synchronized. Try to restart"
                 )
-        self.battle1 = self.agent1.battle_queue.get()
-        self.battle2 = self.agent2.battle_queue.get()
+        observations = {
+            self.agents[0]: self.agent1.obs_queue.get(),
+            self.agents[1]: self.agent2.obs_queue.get(),
+        }
+        self.battle1 = self.agent1.battle
+        self.battle2 = self.agent2.battle
         self.agent1_to_move = True
         self.agent2_to_move = True
-        observations = {
-            self.agents[0]: self.embed_battle(self.battle1),
-            self.agents[1]: self.embed_battle(self.battle2),
-        }
         return observations, self.get_additional_info()
 
     def render(self, mode: str = "human"):
@@ -880,10 +876,10 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                             "Use this method only when training or "
                             "evaluation are over."
                         )
-                if not self.agent1.battle_queue.empty():
-                    await self.agent1.battle_queue.async_get()
-                if not self.agent2.battle_queue.empty():
-                    await self.agent2.battle_queue.async_get()
+                if not self.agent1.obs_queue.empty():
+                    await self.agent1.obs_queue.async_get()
+                if not self.agent2.obs_queue.empty():
+                    await self.agent2.obs_queue.async_get()
                 if self.agent1_to_move:
                     self.agent1_to_move = False
                     await self.agent1.order_queue.async_put(ForfeitBattleOrder())
@@ -909,10 +905,10 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             await self.agent1.order_queue.async_get()
         while not self.agent2.order_queue.empty():
             await self.agent2.order_queue.async_get()
-        while not self.agent1.battle_queue.empty():
-            await self.agent1.battle_queue.async_get()
-        while not self.agent2.battle_queue.empty():
-            await self.agent2.battle_queue.async_get()
+        while not self.agent1.obs_queue.empty():
+            await self.agent1.obs_queue.async_get()
+        while not self.agent2.obs_queue.empty():
+            await self.agent2.obs_queue.async_get()
 
         if purge:
             self.reset_battles()
