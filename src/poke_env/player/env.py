@@ -168,8 +168,9 @@ class _EnvPlayer(Player):
         return order
 
     def _battle_finished_callback(self, battle: AbstractBattle):
+        obs = self.env.embed_battle(battle)
         asyncio.run_coroutine_threadsafe(
-            self.obs_queue.async_put(battle), self.ps_client.loop
+            self.obs_queue.async_put(obs), self.ps_client.loop
         )
 
 
