@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import random
 import string
-from typing import NamedTuple, Optional
+from typing import Counter, NamedTuple, Optional
+
+CONFIGURATION_FROM_PLAYER_COUNTER: Counter[str] = Counter()
 
 
 class AccountConfiguration(NamedTuple):
@@ -15,7 +17,18 @@ class AccountConfiguration(NamedTuple):
     password: Optional[str]
 
     @classmethod
-    def generate_config(cls, length: int) -> AccountConfiguration:
+    def countgen(cls, key: str) -> AccountConfiguration:
+        CONFIGURATION_FROM_PLAYER_COUNTER.update([key])
+        username = "%s %d" % (key, CONFIGURATION_FROM_PLAYER_COUNTER[key])
+        if len(username) > 18:
+            username = "%s %d" % (
+                key[: 18 - len(username)],
+                CONFIGURATION_FROM_PLAYER_COUNTER[key],
+            )
+        return cls(username, None)
+
+    @classmethod
+    def randgen(cls, length: int) -> AccountConfiguration:
         char_space = string.ascii_lowercase + string.digits
         username = "".join(random.choices(char_space, k=length))
-        return AccountConfiguration(username, None)
+        return cls(username, None)

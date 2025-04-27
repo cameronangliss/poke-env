@@ -61,7 +61,7 @@ class Player(ABC):
         max_concurrent_battles: int = 1,
         accept_open_team_sheet: bool = False,
         save_replays: Union[bool, str] = False,
-        server_configuration: Optional[ServerConfiguration] = None,
+        server_configuration: ServerConfiguration = LocalhostServerConfiguration,
         start_timer_on_battle_start: bool = False,
         start_listening: bool = True,
         open_timeout: Optional[float] = 10.0,
@@ -94,7 +94,7 @@ class Player(ABC):
         :type save_replays: bool or str
         :param server_configuration: Server configuration. Defaults to Localhost Server
             Configuration.
-        :type server_configuration: ServerConfiguration, optional
+        :type server_configuration: ServerConfiguration
         :param start_listening: Whether to start listening to the server. Defaults to
             True.
         :type start_listening: bool
@@ -119,14 +119,9 @@ class Player(ABC):
             Defaults to None.
         :type team: str or Teambuilder, optional
         """
-        if account_configuration is None:
-            account_configuration = AccountConfiguration.generate_config(10)
-
-        if server_configuration is None:
-            server_configuration = LocalhostServerConfiguration
-
         self.ps_client = PSClient(
-            account_configuration=account_configuration,
+            account_configuration=account_configuration
+            or AccountConfiguration.countgen(self.__class__.__name__),
             avatar=avatar,
             log_level=log_level,
             server_configuration=server_configuration,
