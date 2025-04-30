@@ -125,10 +125,8 @@ class _EnvPlayer(Player):
             order2 = await self._env_move(upd_battle)
             action1 = self.order_to_action(order1, battle)  # type: ignore
             action2 = self.order_to_action(order2, upd_battle)  # type: ignore
-            if any(action1 < 0) or any(action2 < 0):
-                return "/team 123456"
-            else:
-                return f"/team {action1[0]}{action1[1]}{action2[0]}{action2[1]}"
+            assert all(action1 >= 0) and all(action2 >= 0)
+            return f"/team {action1[0]}{action1[1]}{action2[0]}{action2[1]}"
         else:
             raise TypeError()
 
