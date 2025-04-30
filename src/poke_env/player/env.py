@@ -534,7 +534,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             if self.battle2 != self.agent2.battle:
                 self.battle2 = self.agent2.battle
         closing_task = asyncio.run_coroutine_threadsafe(
-            self._stop_challenge_loop(purge=purge), self._loop
+            self._stop_challenge_loop(wait=False, purge=purge), self._loop
         )
         closing_task.result()
 
