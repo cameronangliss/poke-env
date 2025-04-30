@@ -376,6 +376,8 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             loop=self._loop,
             team=self._team,
         )
+        self.agent2.action_to_order = self.action_to_order  # type: ignore
+        self.agent2.order_to_action = self.order_to_action  # type: ignore
         self.agents = []
         old_names = self.possible_agents
         self.possible_agents = [self.agent1.username, self.agent2.username]
