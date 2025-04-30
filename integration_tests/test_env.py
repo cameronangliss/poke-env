@@ -47,6 +47,26 @@ def play_function(env, n_battles):
             done = any(terminated.values()) or any(truncated.values())
 
 
+@pytest.mark.timeout(120)
+def test_env_run():
+    for gen in range(4, 10):
+        env = SinglesTestEnv(
+            battle_format=f"gen{gen}randombattle",
+            log_level=25,
+            strict=False,
+        )
+        play_function(env, 10)
+        env.close()
+    for gen in range(8, 10):
+        env = DoublesTestEnv(
+            battle_format=f"gen{gen}randomdoublesbattle",
+            log_level=25,
+            strict=False,
+        )
+        play_function(env, 10)
+        env.close()
+
+
 def single_agent_play_function(env: SingleAgentWrapper, n_battles: int):
     for _ in range(n_battles):
         done = False
@@ -57,20 +77,16 @@ def single_agent_play_function(env: SingleAgentWrapper, n_battles: int):
             done = terminated or truncated
 
 
-@pytest.mark.timeout(240)
-def test_env_run():
+@pytest.mark.timeout(120)
+def test_single_agent_env_run():
     for gen in range(4, 10):
         env = SinglesTestEnv(
             battle_format=f"gen{gen}randombattle",
             log_level=25,
             strict=False,
         )
-        env.start_challenging(10)
-        play_function(env, 10)
-        env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
-        env.env.start_challenging(3)
-        single_agent_play_function(env, 3)
+        single_agent_play_function(env, 10)
         env.close()
     for gen in range(8, 10):
         env = DoublesTestEnv(
@@ -78,11 +94,7 @@ def test_env_run():
             log_level=25,
             strict=False,
         )
-        env.start_challenging(10)
-        play_function(env, 10)
-        env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
-        env.env.start_challenging(10)
         single_agent_play_function(env, 10)
         env.close()
 
@@ -94,9 +106,7 @@ def test_repeated_runs():
         log_level=25,
         strict=False,
     )
-    env.start_challenging(2)
     play_function(env, 2)
-    env.start_challenging(2)
     play_function(env, 2)
     env.close()
     env = SinglesTestEnv(
@@ -104,38 +114,48 @@ def test_repeated_runs():
         log_level=25,
         strict=False,
     )
-    env.start_challenging(2)
     play_function(env, 2)
-    env.start_challenging(2)
     play_function(env, 2)
     env.close()
 
 
-@pytest.mark.timeout(120)
+@pytest.mark.timeout(60)
 def test_env_api():
     for gen in range(4, 10):
         env = SinglesTestEnv(
             battle_format=f"gen{gen}randombattle",
             log_level=25,
-            start_challenging=True,
             strict=False,
         )
         parallel_api_test(env)
         env.close()
+    for gen in range(8, 10):
+        env = DoublesTestEnv(
+            battle_format=f"gen{gen}randomdoublesbattle",
+            log_level=25,
+            strict=False,
+        )
+        parallel_api_test(env)
+        env.close()
+
+
+@pytest.mark.timeout(60)
+def test_single_agent_env_api():
+    for gen in range(4, 10):
+        env = SinglesTestEnv(
+            battle_format=f"gen{gen}randombattle",
+            log_level=25,
+            strict=False,
+        )
         env = SingleAgentWrapper(env, RandomPlayer())
-        env.env.start_challenging()
         check_env(env)
         env.close()
     for gen in range(8, 10):
         env = DoublesTestEnv(
             battle_format=f"gen{gen}randomdoublesbattle",
             log_level=25,
-            start_challenging=True,
             strict=False,
         )
-        parallel_api_test(env)
-        env.close()
         env = SingleAgentWrapper(env, RandomPlayer())
-        env.env.start_challenging()
         check_env(env)
         env.close()

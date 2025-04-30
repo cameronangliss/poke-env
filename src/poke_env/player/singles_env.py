@@ -39,7 +39,6 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
         ping_interval: Optional[float] = 20.0,
         ping_timeout: Optional[float] = 20.0,
         team: Optional[Union[str, Teambuilder]] = None,
-        start_challenging: bool = False,
         fake: bool = False,
         strict: bool = True,
     ):
@@ -58,7 +57,6 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
             ping_interval=ping_interval,
             ping_timeout=ping_timeout,
             team=team,
-            start_challenging=start_challenging,
             fake=fake,
             strict=strict,
         )
@@ -100,6 +98,13 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
         :type action: int64
         :param battle: The current battle state
         :type battle: AbstractBattle
+        :param fake: If true, action-order converters will try to avoid returning a default
+            output if at all possible, even if the output isn't a legal decision. Defaults
+            to False.
+        :type fake: bool
+        :param strict: If true, action-order converters will throw an error if the move is
+            illegal. Otherwise, it will return default. Defaults to True.
+        :type strict: bool
 
         :return: The battle order for the given action in context of the current battle.
         :rtype: BattleOrder
@@ -172,6 +177,13 @@ class SinglesEnv(PokeEnv[ObsType, np.int64]):
         :type order: BattleOrder
         :param battle: The current battle state
         :type battle: AbstractBattle
+        :param fake: If true, action-order converters will try to avoid returning a default
+            output if at all possible, even if the output isn't a legal decision. Defaults
+            to False.
+        :type fake: bool
+        :param strict: If true, action-order converters will throw an error if the move is
+            illegal. Otherwise, it will return default. Defaults to True.
+        :type strict: bool
 
         :return: The action for the given battle order in context of the current battle.
         :rtype: int64

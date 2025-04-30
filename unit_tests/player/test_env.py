@@ -2,6 +2,7 @@ import asyncio
 import pickle
 import sys
 from io import StringIO
+from unittest.mock import AsyncMock
 
 import numpy as np
 import numpy.typing as npt
@@ -94,6 +95,7 @@ def test_reset_step_close():
         start_listening=False,
         strict=False,
     )
+    env.agent1.battle_against = AsyncMock(return_value=None)
     # --- Part 1: Test reset() ---
     # Pre-populate each agent's battle_queue with a new battle.
     battle_new1 = Battle("new_battle1", env.agent1.username, env.agent1.logger, gen=8)
@@ -147,7 +149,7 @@ def test_reset_step_close():
     # Additional info should be empty.
     assert add_info_step == {env.agents[0]: {}, env.agents[1]: {}}
 
-    # --- Part 2: Test close() ---
+    # --- Part 3: Test close() ---
     env.close()
 
 
@@ -206,7 +208,9 @@ def test_pickle():
         start_listening=False,
         battle_format="gen7randombattles",
     )
-    pickle.loads(pickle.dumps(env))
+    env2 = pickle.loads(pickle.dumps(env))
+    assert env.agent1.username != env2.agent1.username
+    assert env.agent2.username != env2.agent2.username
 
 
 async def run_test_choose_move():

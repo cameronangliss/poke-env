@@ -923,21 +923,25 @@ class AbstractBattle(ABC):
             player, details = event[2:4]
             self._register_teampreview_pokemon(player, details)
         elif event[1] == "raw":
-            if "'s rating: " in event[2]:
-                username, rating_info = event[2].split("'s rating: ")
-                rating_int = int(rating_info[:4])
-                if username == self.player_username:
-                    self._rating = rating_int
-                elif username == self.opponent_username:
-                    self._opponent_rating = rating_int
-                elif self.logger is not None:
-                    self.logger.warning(
-                        "Rating information regarding an unrecognized username received. "
-                        "Received '%s', while only known players are '%s' and '%s'",
-                        username,
-                        self.player_username,
-                        self.opponent_username,
-                    )
+            rating_splint_event = event[2].split("'s rating: ")
+
+            if len(rating_splint_event) != 2:
+                return
+
+            username, rating_info = event[2].split("'s rating: ")
+            rating_int = int(rating_info[:4])
+            if username == self.player_username:
+                self._rating = rating_int
+            elif username == self.opponent_username:
+                self._opponent_rating = rating_int
+            elif self.logger is not None:
+                self.logger.warning(
+                    "Rating information regarding an unrecognized username received. "
+                    "Received '%s', while only known players are '%s' and '%s'",
+                    username,
+                    self.player_username,
+                    self.opponent_username,
+                )
         elif event[1] == "replace":
             pokemon = event[2]
             details = event[3]
