@@ -1028,10 +1028,7 @@ class AbstractBattle(ABC):
                 self._team[pokemon["ident"]].update_from_request(pokemon)
             else:
                 self.get_pokemon(
-                    pokemon["ident"],
-                    force_self_team=True,
-                    details=pokemon["details"],
-                    request=pokemon,
+                    pokemon["ident"], force_self_team=True, request=pokemon
                 )
 
     def won_by(self, player_name: str):
