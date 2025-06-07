@@ -7,7 +7,6 @@ import copy
 import time
 from abc import abstractmethod
 from concurrent.futures import Future
-from threading import Thread
 from typing import Any, Awaitable, Dict, Generic, Optional, Tuple, TypeVar, Union
 from weakref import WeakKeyDictionary
 
