@@ -13,7 +13,6 @@ from typing import Any, Awaitable, Dict, List, Optional, Union
 import orjson
 
 from poke_env.concurrency import (
-    POKE_LOOP,
     create_in_poke_loop,
     handle_threaded_coroutines,
 )
@@ -67,7 +66,6 @@ class Player(ABC):
         open_timeout: Optional[float] = 10.0,
         ping_interval: Optional[float] = 20.0,
         ping_timeout: Optional[float] = 20.0,
-        loop: asyncio.AbstractEventLoop = POKE_LOOP,
         team: Optional[Union[str, Teambuilder]] = None,
     ):
         """
@@ -129,7 +127,6 @@ class Player(ABC):
             open_timeout=open_timeout,
             ping_interval=ping_interval,
             ping_timeout=ping_timeout,
-            loop=loop,
         )
 
         self.ps_client._handle_battle_message = self._handle_battle_message  # type: ignore
@@ -143,16 +140,16 @@ class Player(ABC):
         self._accept_open_team_sheet: bool = accept_open_team_sheet
 
         self._battles: Dict[str, AbstractBattle] = {}
-        self._battle_semaphore: Semaphore = create_in_poke_loop(Semaphore, loop, 0)
+        self._battle_semaphore: Semaphore = create_in_poke_loop(Semaphore, 0)
 
-        self._battle_start_condition: Condition = create_in_poke_loop(Condition, loop)
+        self._battle_start_condition: Condition = create_in_poke_loop(Condition)
         self._battle_count_queue: Queue[Any] = create_in_poke_loop(
-            Queue, loop, max_concurrent_battles
+            Queue, max_concurrent_battles
         )
-        self._battle_end_condition: Condition = create_in_poke_loop(Condition, loop)
-        self._challenge_queue: Queue[Any] = create_in_poke_loop(Queue, loop)
-        self._waiting: Event = create_in_poke_loop(Event, loop)
-        self._trying_again: Event = create_in_poke_loop(Event, loop)
+        self._battle_end_condition: Condition = create_in_poke_loop(Condition)
+        self._challenge_queue: Queue[Any] = create_in_poke_loop(Queue)
+        self._waiting: Event = create_in_poke_loop(Event)
+        self._trying_again: Event = create_in_poke_loop(Event)
         self._team: Optional[Teambuilder] = None
 
         if isinstance(team, Teambuilder):
@@ -470,8 +467,7 @@ class Player(ABC):
         :type packed_team: string, optional.
         """
         await handle_threaded_coroutines(
-            self._accept_challenges(opponent, n_challenges, packed_team),
-            self.ps_client.loop,
+            self._accept_challenges(opponent, n_challenges, packed_team)
         )
 
     async def _accept_challenges(
@@ -696,7 +692,7 @@ class Player(ABC):
         :param n_games: Number of battles that will be played
         :type n_games: int
         """
-        await handle_threaded_coroutines(self._ladder(n_games), self.ps_client.loop)
+        await handle_threaded_coroutines(self._ladder(n_games))
 
     async def _ladder(self, n_games: int):
         await self.ps_client.logged_in.wait()
@@ -728,7 +724,7 @@ class Player(ABC):
         :type n_battles: int
         """
         await handle_threaded_coroutines(
-            self._battle_against(*opponents, n_battles=n_battles), self.ps_client.loop
+            self._battle_against(*opponents, n_battles=n_battles)
         )
 
     async def _battle_against(self, *opponents: Player, n_battles: int):
@@ -762,7 +758,7 @@ class Player(ABC):
         :type to_wait: Event, optional.
         """
         await handle_threaded_coroutines(
-            self._send_challenges(opponent, n_challenges, to_wait), self.ps_client.loop
+            self._send_challenges(opponent, n_challenges, to_wait)
         )
 
     async def _send_challenges(
@@ -899,11 +895,7 @@ class Player(ABC):
 
     @property
     def win_rate(self) -> float:
-        return (
-            self.n_won_battles / self.n_finished_battles
-            if self.n_finished_battles > 0
-            else 0
-        )
+        return self.n_won_battles / self.n_finished_battles
 
     @property
     def logger(self) -> Logger:

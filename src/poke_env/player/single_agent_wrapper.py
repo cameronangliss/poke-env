@@ -19,26 +19,26 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
     def step(
         self, action: ActionType
     ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
-        assert self.env.agent2.battle is not None
-        if not self.env.agent2.battle.teampreview:
-            battle = self.env.agent2.battle
+        assert self.env.battle2 is not None
+        if not self.env.battle2.teampreview:
+            battle = self.env.battle2
             opp_order = self.opponent.choose_move(battle)
             assert not isinstance(opp_order, Awaitable)
         elif self.first_teampreview_order is None:
-            battle = self.env.agent2.battle
+            battle = self.env.battle2
             opp_order = self.opponent.choose_move(battle)
             assert not isinstance(opp_order, Awaitable)
             self.first_teampreview_order = opp_order
         else:
-            assert isinstance(self.env.agent2.battle, DoubleBattle)
+            assert isinstance(self.env.battle2, DoubleBattle)
             battle = _EnvPlayer._simulate_teampreview_switchin(
-                self.first_teampreview_order, self.env.agent2.battle
+                self.first_teampreview_order, self.env.battle2
             )
             opp_order = self.opponent.choose_move(battle)
             assert not isinstance(opp_order, Awaitable)
             self.first_teampreview_order = None
         opp_action = self.env.order_to_action(
-            opp_order, battle, fake=self.env._fake, strict=self.env._strict
+            opp_order, battle, fake=self.env.fake, strict=self.env.strict
         )
         actions = {
             self.env.agent1.username: action,

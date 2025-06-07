@@ -41,26 +41,26 @@ async def _create_in_poke_loop_async(cls_: Any, *args: Any, **kwargs: Any) -> An
     return cls_(*args, **kwargs)
 
 
-def create_in_poke_loop(
-    cls_: Any,
-    loop: asyncio.AbstractEventLoop,
-    *args: Any,
-    **kwargs: Any,
-) -> Any:
+def create_in_poke_loop(cls_: Any, *args: Any, **kwargs: Any) -> Any:
     try:
-        current_loop = asyncio.get_running_loop()
+        # Python >= 3.7
+        loop = asyncio.get_running_loop()
+    except AttributeError:
+        # Python < 3.7 so get_event_loop won't raise exceptions
+        loop = asyncio.get_event_loop()
     except RuntimeError:
-        current_loop = None
-    if current_loop == loop:
+        # asyncio.get_running_loop raised exception so no loop is running
+        loop = None
+    if loop == POKE_LOOP:
         return cls_(*args, **kwargs)
     else:
         return asyncio.run_coroutine_threadsafe(
-            _create_in_poke_loop_async(cls_, *args, **kwargs), loop
+            _create_in_poke_loop_async(cls_, *args, **kwargs), POKE_LOOP
         ).result()
 
 
-async def handle_threaded_coroutines(coro: Any, loop: asyncio.AbstractEventLoop):
-    task = asyncio.run_coroutine_threadsafe(coro, loop)
+async def handle_threaded_coroutines(coro: Any):
+    task = asyncio.run_coroutine_threadsafe(coro, POKE_LOOP)
     await asyncio.wrap_future(task)
     return task.result()
 
