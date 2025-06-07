@@ -60,8 +60,8 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[ObsType, Dict[str, Any]]:
         obs, infos = self.env.reset(seed, options)
-        assert self.env.agent2.battle is not None
-        if not self.env.agent2.battle.teampreview:
+        assert self.env.battle2 is not None
+        if not self.env.battle2.teampreview:
             self.opponent._teampreview_draft = self.env._teampreview_draft2  # type: ignore
         self._np_random = self.env._np_random
         return obs[self.env.agent1.username], infos[self.env.agent1.username]
@@ -71,12 +71,6 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
 
     def close(self):
         self.env.close()
-
-    def get_opp_win_rate(self) -> float:
-        return self.env.get_opp_win_rate()  # type: ignore
-
-    def cleanup(self):
-        self.env.cleanup()  # type: ignore
 
     def set_opp_policy(self, policy):
         self.opponent.set_policy(policy)  # type: ignore
