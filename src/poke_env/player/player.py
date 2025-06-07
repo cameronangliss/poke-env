@@ -12,10 +12,7 @@ from typing import Any, Awaitable, Dict, List, Optional, Union
 
 import orjson
 
-from poke_env.concurrency import (
-    create_in_poke_loop,
-    handle_threaded_coroutines,
-)
+from poke_env.concurrency import create_in_poke_loop, handle_threaded_coroutines
 from poke_env.data import GenData, to_id_str
 from poke_env.environment.abstract_battle import AbstractBattle
 from poke_env.environment.battle import Battle
