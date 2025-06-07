@@ -589,6 +589,8 @@ class Pokemon:
         elif tb.nickname is not None and tb.species is not None:
             self._update_from_pokedex(tb.species)
             self._name = tb.nickname
+        elif tb.nickname is None and tb.species is not None:
+            self._update_from_pokedex(tb.species)
         else:
             raise ValueError(
                 "TeambuilderPokemon must have either a nickname or species", tb
@@ -655,7 +657,9 @@ class Pokemon:
                     [v for m, v in self.moves.items() if m.startswith("hiddenpower")][0]
                 )
             else:
-                assert {
+                # TODO: the illusion part of this assertion works around Zoroark's
+                # difficulties. This should be properly handled at some point.
+                assert self.ability == "illusion" or {
                     "copycat",
                     "metronome",
                     "mefirst",

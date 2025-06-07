@@ -121,7 +121,7 @@ class Player(ABC):
         """
         self.ps_client = PSClient(
             account_configuration=account_configuration
-            or AccountConfiguration.countgen(self.__class__.__name__),
+            or AccountConfiguration.generate(self.__class__.__name__),
             avatar=avatar,
             log_level=log_level,
             server_configuration=server_configuration,
@@ -307,7 +307,7 @@ class Player(ABC):
                     mon = battle.get_pokemon(
                         f"{role}: {name}", details=teampreview_mon._last_details
                     )
-                    teambuilder = TeambuilderPokemon.parse_showteam_pkmn_substr(msg)
+                    teambuilder = TeambuilderPokemon.from_packed(msg)
                     mon._update_from_teambuilder(teambuilder)
                 # only handle battle request after all open sheets are processed
                 if role == "p2":
@@ -322,12 +322,18 @@ class Player(ABC):
                 self._battle_finished_callback(battle)
                 async with self._battle_end_condition:
                     self._battle_end_condition.notify_all()
-                await self.ps_client.send_message(f"/leave {battle.battle_tag}")
+                if hasattr(self.ps_client, "websocket"):
+                    await self.ps_client.send_message(f"/leave {battle.battle_tag}")
             elif split_message[1] == "error":
                 self.logger.log(
                     25, "Error message received: %s", "|".join(split_message)
                 )
                 if split_message[2].startswith(
+                    "[Invalid choice] Sorry, too late to make a different move"
+                ):
+                    if battle.trapped:
+                        self._trying_again.set()
+                elif split_message[2].startswith(
                     "[Unavailable choice] Can't switch: The active Pokémon is "
                     "trapped"
                 ) or split_message[2].startswith(

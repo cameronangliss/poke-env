@@ -98,14 +98,8 @@ class _EnvPlayer(Player):
 
     def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
-        self.battle_queue = _AsyncQueue(
-            create_in_poke_loop(asyncio.Queue, self.ps_client.loop, 1),
-            self.ps_client.loop,
-        )
-        self.order_queue = _AsyncQueue(
-            create_in_poke_loop(asyncio.Queue, self.ps_client.loop, 1),
-            self.ps_client.loop,
-        )
+        self.battle_queue = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
+        self.order_queue = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
         self.battle: Optional[AbstractBattle] = None
 
     def choose_move(self, battle: AbstractBattle) -> Awaitable[BattleOrder]:
@@ -279,7 +273,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         Thread(target=self._loop.run_forever, daemon=True).start()
         self.agent1 = _EnvPlayer(
             account_configuration=account_configuration1
-            or AccountConfiguration.countgen(self.__class__.__name__),
+            or AccountConfiguration.generate(self.__class__.__name__),
             avatar=avatar,
             battle_format=battle_format,
             log_level=log_level,
@@ -299,7 +293,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self.agent1.order_to_action = self.order_to_action  # type: ignore
         self.agent2 = _EnvPlayer(
             account_configuration=account_configuration2
-            or AccountConfiguration.countgen(self.__class__.__name__),
+            or AccountConfiguration.generate(self.__class__.__name__),
             avatar=avatar,
             battle_format=battle_format,
             log_level=log_level,
