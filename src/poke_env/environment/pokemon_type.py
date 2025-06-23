@@ -38,7 +38,7 @@ class PokemonType(Enum):
     STELLAR = auto()
 
     def __str__(self) -> str:
-        return f"{self.name} (pokemon type) object"
+        return self.name.lower()
 
     def damage_multiplier(
         self,
