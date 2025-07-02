@@ -7,7 +7,7 @@ from poke_env.battle.move_category import MoveCategory
 from poke_env.battle.pokemon import Pokemon
 from poke_env.battle.pokemon_type import PokemonType
 from poke_env.battle.target import Target
-from poke_env.player.battle_order import SingleBattleOrder
+from poke_env.player.battle_order import PassBattleOrder, SingleBattleOrder
 
 
 class DoubleBattle(AbstractBattle):
@@ -504,24 +504,26 @@ class DoubleBattle(AbstractBattle):
         self._trapped = value
 
     @property
-    def valid_orders(self) -> List[List[str]]:
-        orders: List[List[str]] = [[], []]
+    def valid_orders(self) -> List[List[SingleBattleOrder]]:
+        orders: List[List[SingleBattleOrder]] = [[], []]
         for i in range(2):
             if self.force_switch == [[False, True], [True, False]][i]:
                 continue
-            orders[i] += [
-                str(SingleBattleOrder(mon)) for mon in self.available_switches[i]
-            ]
+            orders[i] += [SingleBattleOrder(mon) for mon in self.available_switches[i]]
+            if self.force_switch[i]:
+                if all(self.force_switch) and len(self.available_switches[0]) == 1:
+                    orders[i] += [PassBattleOrder()]
+                continue
             active_mon = self.active_pokemon[i]
             if active_mon is not None:
                 orders[i] += [
-                    str(SingleBattleOrder(move, move_target=target))
+                    SingleBattleOrder(move, move_target=target)
                     for move in self.available_moves[i]
                     for target in self.get_possible_showdown_targets(move, active_mon)
                 ]
                 if self.can_mega_evolve[i]:
                     orders[i] += [
-                        str(SingleBattleOrder(move, move_target=target, mega=True))
+                        SingleBattleOrder(move, move_target=target, mega=True)
                         for move in self.available_moves[i]
                         for target in self.get_possible_showdown_targets(
                             move, active_mon
@@ -529,7 +531,7 @@ class DoubleBattle(AbstractBattle):
                     ]
                 if self.can_z_move[i]:
                     orders[i] += [
-                        str(SingleBattleOrder(move, move_target=target, z_move=True))
+                        SingleBattleOrder(move, move_target=target, z_move=True)
                         for move in self.available_moves[i]
                         for target in self.get_possible_showdown_targets(
                             move, active_mon
@@ -538,7 +540,7 @@ class DoubleBattle(AbstractBattle):
                     ]
                 if self.can_dynamax[i]:
                     orders[i] += [
-                        str(SingleBattleOrder(move, move_target=target, dynamax=True))
+                        SingleBattleOrder(move, move_target=target, dynamax=True)
                         for move in self.available_moves[i]
                         for target in self.get_possible_showdown_targets(
                             move, active_mon
@@ -546,25 +548,16 @@ class DoubleBattle(AbstractBattle):
                     ]
                 if self.can_tera[i]:
                     orders[i] += [
-                        str(
-                            SingleBattleOrder(
-                                move, move_target=target, terastallize=True
-                            )
-                        )
+                        SingleBattleOrder(move, move_target=target, terastallize=True)
                         for move in self.available_moves[i]
                         for target in self.get_possible_showdown_targets(
                             move, active_mon
                         )
                     ]
-            if (
-                self.force_switch == [True, True]
-                and len(self.available_switches[0]) == 1
-            ):
-                orders[i] += ["None"]
         if not orders[0]:
-            orders[0] += ["None"]
+            orders[0] += [PassBattleOrder()]
         if not orders[1]:
-            orders[1] += ["None"]
+            orders[1] += [PassBattleOrder()]
         return orders
 
     @property
