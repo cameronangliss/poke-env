@@ -409,10 +409,7 @@ class SimpleHeuristicsPlayer(Player):
                     else PassBattleOrder()
                 )
             ]
-        joined_orders = DoubleBattleOrder.join_orders(
-            [orders[0]] if orders[0] is not None else [],
-            [orders[1]] if orders[1] is not None else [],
-        )
+        joined_orders = DoubleBattleOrder.join_orders([orders[0]], [orders[1]])
         if joined_orders:
             return joined_orders[0]
         else:
