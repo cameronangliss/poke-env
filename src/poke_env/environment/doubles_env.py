@@ -89,8 +89,7 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
         fake: bool = False,
         strict: bool = True,
     ) -> BattleOrder:
-        """
-        Returns the BattleOrder relative to the given action.
+        """Convert an action array into a :class:`BattleOrder`.
 
         The action is a list in doubles, and the individual action mapping is
         as follows, where each 5-long range for a move corresponds to a
@@ -124,31 +123,62 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
         :type action: ndarray[int64]
         :param battle: The current battle state
         :type battle: AbstractBattle
+        :param fake: If ``True``, return a best-effort order even if it would be
+            illegal.
+        :type fake: bool
+        :param strict: If ``True``, raise an error when the action is illegal;
+            otherwise return a default order.
+        :type strict: bool
 
         :return: The battle order for the given action in context of the current battle.
         :rtype: BattleOrder
 
         """
-        if action[0] == -1 or action[1] == -1:
+        if action[0] == -2 and action[1] == -2:
+            return DefaultBattleOrder()
+        elif action[0] == -1 or action[1] == -1:
             return ForfeitBattleOrder()
         try:
             order1 = DoublesEnv._action_to_order_individual(action[0], battle, fake, 0)
+        except ValueError as e:
+            if strict:
+                raise e
+            else:
+                if battle.logger is not None:
+                    battle.logger.warning(str(e) + " Defaulting to random move.")
+                order = Player.choose_random_doubles_move(battle)
+                order1 = (
+                    order.first_order
+                    if not isinstance(order, DefaultBattleOrder)
+                    else order
+                )
+        try:
             order2 = DoublesEnv._action_to_order_individual(action[1], battle, fake, 1)
         except ValueError as e:
             if strict:
                 raise e
             else:
-                return DefaultBattleOrder()
+                if battle.logger is not None:
+                    battle.logger.warning(str(e) + " Defaulting to random move.")
+                order = Player.choose_random_doubles_move(battle)
+                order2 = (
+                    order.second_order
+                    if not isinstance(order, DefaultBattleOrder)
+                    else order
+                )
         joined_orders = DoubleBattleOrder.join_orders([order1], [order2])
         if not joined_orders:
+            error_msg = (
+                f"Invalid action {action} from player {battle.player_username} "
+                f"in battle {battle.battle_tag} - converted orders {order1} "
+                f"and {order2} are incompatible!"
+            )
             if strict:
-                raise ValueError(
-                    f"Invalid action {action} from player {battle.player_username} "
-                    f"in battle {battle.battle_tag} - converted orders {order1} "
-                    f"and {order2} are incompatible!"
-                )
+                raise ValueError(str(error_msg) + " Defaulting to random move.")
             else:
-                return DefaultBattleOrder()
+                if battle.logger is not None:
+                    battle.logger.warning(error_msg)
+                return Player.choose_random_doubles_move(battle)
         else:
             return joined_orders[0]
 
@@ -206,13 +236,18 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
         fake: bool = False,
         strict: bool = True,
     ) -> npt.NDArray[np.int64]:
-        """
-        Returns the action relative to the given BattleOrder.
+        """Convert a :class:`BattleOrder` into an action array.
 
         :param order: The order to take.
         :type order: BattleOrder
         :param battle: The current battle state
         :type battle: AbstractBattle
+        :param fake: If ``True``, return a best-effort action even if it would be
+            illegal.
+        :type fake: bool
+        :param strict: If ``True``, raise an error when the order is illegal;
+            otherwise return default.
+        :type strict: bool
 
         :return: The action for the given battle order in context of the current battle.
         :rtype: ndarray[int64]
@@ -226,76 +261,110 @@ class DoublesEnv(PokeEnv[ObsType, npt.NDArray[np.int64]]):
             [order.first_order], [order.second_order]
         )
         if not fake and not joined_orders:
+            error_msg = (
+                f"Invalid order {order} from player {battle.player_username} "
+                f"in battle {battle.battle_tag} - orders are incompatible!"
+            )
             if strict:
-                raise ValueError(
-                    f"Invalid order {order} from player {battle.player_username} "
-                    f"in battle {battle.battle_tag} - orders are incompatible!"
-                )
+                raise ValueError(str(error_msg) + " Defaulting to random move.")
             else:
-                return np.array([-2, -2])
+                if battle.logger is not None:
+                    battle.logger.warning(error_msg)
+                return DoublesEnv.order_to_action(
+                    Player.choose_random_doubles_move(battle), battle, fake, strict
+                )
         try:
             action1 = DoublesEnv._order_to_action_individual(
                 order.first_order, battle, fake, 0
             )
-            action2 = DoublesEnv._order_to_action_individual(
-                order.second_order, battle, fake, 1
-            )
-            return np.array([action1, action2])
         except ValueError as e:
             if strict:
                 raise e
             else:
-                return np.array([-2, -2])
+                if battle.logger is not None:
+                    battle.logger.warning(str(e) + " Defaulting to random move.")
+                order = Player.choose_random_doubles_move(battle)
+                action1 = DoublesEnv._order_to_action_individual(
+                    (
+                        order.first_order
+                        if not isinstance(order, DefaultBattleOrder)
+                        else order
+                    ),
+                    battle,
+                    fake,
+                    0,
+                )
+        try:
+            action2 = DoublesEnv._order_to_action_individual(
+                order.second_order, battle, fake, 1
+            )
+        except ValueError as e:
+            if strict:
+                raise e
+            else:
+                if battle.logger is not None:
+                    battle.logger.warning(str(e) + " Defaulting to random move.")
+                order = Player.choose_random_doubles_move(battle)
+                action2 = DoublesEnv._order_to_action_individual(
+                    (
+                        order.second_order
+                        if not isinstance(order, DefaultBattleOrder)
+                        else order
+                    ),
+                    battle,
+                    fake,
+                    1,
+                )
+        return np.array([action1, action2])
 
     @staticmethod
     def _order_to_action_individual(
         order: SingleBattleOrder, battle: DoubleBattle, fake: bool, pos: int
     ) -> np.int64:
-        if isinstance(order, DefaultBattleOrder):
-            return np.int64(-2)
-        else:
-            assert isinstance(order, SingleBattleOrder)
-            if isinstance(order, PassBattleOrder):
-                return np.int64(0)
-            assert not isinstance(order.order, str), "invalid order"
-            if isinstance(order.order, Pokemon):
-                action = [p.base_species for p in battle.team.values()].index(
-                    order.order.base_species
-                ) + 1
+        if isinstance(order.order, str):
+            if isinstance(order, DefaultBattleOrder):
+                return np.int64(-2)
             else:
-                active_mon = battle.active_pokemon[pos]
-                if active_mon is None:
-                    raise ValueError(
-                        f"Invalid order {order} from player {battle.player_username} "
-                        f"in battle {battle.battle_tag} at position {pos} - type of "
-                        f"order.order is Move, but battle.active_pokemon[pos] is None!"
-                    )
-                mvs = (
-                    battle.available_moves[pos]
-                    if len(battle.available_moves[pos]) == 1
-                    and battle.available_moves[pos][0].id in ["struggle", "recharge"]
-                    else list(active_mon.moves.values())
+                assert isinstance(order, PassBattleOrder)
+                return np.int64(0)
+        elif isinstance(order.order, Pokemon):
+            action = [p.base_species for p in battle.team.values()].index(
+                order.order.base_species
+            ) + 1
+        else:
+            active_mon = battle.active_pokemon[pos]
+            if active_mon is None:
+                raise ValueError(
+                    f"Invalid order {order} from player {battle.player_username} "
+                    f"in battle {battle.battle_tag} at position {pos} - type of "
+                    f"order.order is Move, but battle.active_pokemon[pos] is None!"
                 )
-                if order.order.id not in [m.id for m in mvs]:
-                    raise ValueError(
-                        f"Invalid order {order} from player {battle.player_username} "
-                        f"in battle {battle.battle_tag} at position {pos} - order "
-                        f"specifies a move but the move {order.order.id} is not in "
-                        f"available moves {mvs}!"
-                    )
-                action = [m.id for m in mvs].index(order.order.id)
-                target = order.move_target + 2
-                if order.mega:
-                    gimmick = 1
-                elif order.z_move:
-                    gimmick = 2
-                elif order.dynamax:
-                    gimmick = 3
-                elif order.terastallize:
-                    gimmick = 4
-                else:
-                    gimmick = 0
-                action = 1 + 6 + 5 * action + target + 20 * gimmick
+            mvs = (
+                battle.available_moves[pos]
+                if len(battle.available_moves[pos]) == 1
+                and battle.available_moves[pos][0].id in ["struggle", "recharge"]
+                else list(active_mon.moves.values())
+            )
+            if order.order.id not in [m.id for m in mvs]:
+                raise ValueError(
+                    f"Invalid order {order} from player {battle.player_username} "
+                    f"in battle {battle.battle_tag} at position {pos} - order "
+                    f"specifies a move but the move {order.order.id} is not in "
+                    f"available moves {mvs}!"
+                )
+            action = [m.id for m in mvs].index(order.order.id)
+            target = order.move_target + 2
+            if order.mega:
+                gimmick = 1
+            elif order.z_move:
+                gimmick = 2
+            elif order.dynamax:
+                gimmick = 3
+            elif order.terastallize:
+                gimmick = 4
+            else:
+                gimmick = 0
+            action = 1 + 6 + 5 * action + target + 20 * gimmick
         if not fake and str(order) not in [str(o) for o in battle.valid_orders[pos]]:
             raise ValueError(
                 f"Invalid order from player {battle.player_username} in battle "

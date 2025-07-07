@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock
 
 import numpy as np
 import numpy.typing as npt
+import pytest
 from gymnasium.spaces import Discrete
 
 from poke_env.battle import (
@@ -398,10 +399,8 @@ def test_singles_action_order_conversions():
         )
         check_action_order_roundtrip(p, Player.create_order(active_pokemon), battle)
         battle._available_switches = []
-        assert (
-            p.action_to_order(np.int64(9), battle, strict=False).message
-            == "/choose default"
-        )
+        with pytest.raises(ValueError):
+            p.action_to_order(np.int64(9), battle)
         if has_megas:
             battle._can_mega_evolve = True
             assert (
@@ -480,10 +479,8 @@ def test_doubles_action_order_conversions():
             p, DoubleBattleOrder(Player.create_order(active_pokemon)), battle
         )
         battle._available_switches = [[], []]
-        assert (
-            p.action_to_order(np.array([25, 0]), battle, strict=False).message
-            == "/choose default"
-        )
+        with pytest.raises(ValueError):
+            p.action_to_order(np.array([25, 0]), battle)
         if has_megas:
             battle._can_mega_evolve = [True, True]
             assert (
