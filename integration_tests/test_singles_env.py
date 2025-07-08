@@ -23,21 +23,6 @@ class SinglesTestEnv(SinglesEnv):
         return np.array([0])
 
 
-class DoublesTestEnv(DoublesEnv):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        self.observation_spaces = {
-            agent: Box(np.array([0]), np.array([1]), dtype=np.int64)
-            for agent in self.possible_agents
-        }
-
-    def calc_reward(self, battle) -> float:
-        return 0.0
-
-    def embed_battle(self, battle):
-        return np.array([0])
-
-
 def play_function(env, n_battles):
     for _ in range(n_battles):
         done = False
