@@ -7,7 +7,8 @@ import copy
 import time
 from abc import abstractmethod
 from concurrent.futures import Future
-from typing import Any, Awaitable, Dict, Generic, List, Optional, Tuple, TypeVar, Union
+from threading import Thread
+from typing import Any, Awaitable, Dict, Generic, Optional, Tuple, TypeVar, Union
 from weakref import WeakKeyDictionary
 
 from gymnasium.spaces import Space
@@ -16,7 +17,10 @@ from numpy.random import Generator
 from pettingzoo.utils.env import ParallelEnv  # type: ignore[import-untyped]
 
 from poke_env.battle.abstract_battle import AbstractBattle
-from poke_env.concurrency import POKE_LOOP, create_in_poke_loop
+from poke_env.battle.battle import Battle
+from poke_env.battle.double_battle import DoubleBattle
+from poke_env.battle.pokemon import Pokemon
+from poke_env.concurrency import create_in_poke_loop
 from poke_env.player.battle_order import (
     BattleOrder,
     DefaultBattleOrder,
@@ -108,10 +112,12 @@ class _EnvPlayer(Player):
             return self.random_teampreview(battle)
         elif isinstance(battle, DoubleBattle):
             order1 = await self._env_move(battle)
-            if not isinstance(order1, DoubleBattleOrder):
+            if isinstance(order1, (DefaultBattleOrder, ForfeitBattleOrder)):
                 return order1.message
             upd_battle = self._simulate_teampreview_switchin(order1, battle)
             order2 = await self._env_move(upd_battle)
+            if isinstance(order2, (DefaultBattleOrder, ForfeitBattleOrder)):
+                return order2.message
             action1 = self.order_to_action(order1, battle)  # type: ignore
             action2 = self.order_to_action(order2, upd_battle)  # type: ignore
             assert all(action1 >= 0) and all(action2 >= 0)
@@ -332,7 +338,9 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self._loop = asyncio.new_event_loop()
         Thread(target=self._loop.run_forever, daemon=True).start()
         self.agent1 = _EnvPlayer(
-            account_configuration=AccountConfiguration.randgen(10),
+            account_configuration=AccountConfiguration.generate(
+                self.__class__.__name__, rand=True
+            ),
             avatar=self._avatar,
             battle_format=self._battle_format,
             log_level=self._log_level,
@@ -351,7 +359,9 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self.agent1.action_to_order = self.action_to_order  # type: ignore
         self.agent1.order_to_action = self.order_to_action  # type: ignore
         self.agent2 = _EnvPlayer(
-            account_configuration=AccountConfiguration.randgen(10),
+            account_configuration=AccountConfiguration.generate(
+                self.__class__.__name__, rand=True
+            ),
             avatar=self._avatar,
             battle_format=self._battle_format,
             log_level=self._log_level,
