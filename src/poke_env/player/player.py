@@ -12,22 +12,24 @@ from typing import Any, Awaitable, Dict, List, Optional, Union
 
 import orjson
 
+from poke_env.battle.abstract_battle import AbstractBattle
+from poke_env.battle.battle import Battle
+from poke_env.battle.double_battle import DoubleBattle
+from poke_env.battle.move import Move
+from poke_env.battle.pokemon import Pokemon
 from poke_env.concurrency import (
     POKE_LOOP,
     create_in_poke_loop,
     handle_threaded_coroutines,
 )
 from poke_env.data import GenData, to_id_str
-from poke_env.environment.abstract_battle import AbstractBattle
-from poke_env.environment.battle import Battle
-from poke_env.environment.double_battle import DoubleBattle
-from poke_env.environment.move import Move
-from poke_env.environment.pokemon import Pokemon
 from poke_env.exceptions import ShowdownException
 from poke_env.player.battle_order import (
     BattleOrder,
     DefaultBattleOrder,
     DoubleBattleOrder,
+    PassBattleOrder,
+    SingleBattleOrder,
 )
 from poke_env.ps_client import PSClient
 from poke_env.ps_client.account_configuration import AccountConfiguration
@@ -121,7 +123,7 @@ class Player(ABC):
         """
         self.ps_client = PSClient(
             account_configuration=account_configuration
-            or AccountConfiguration.countgen(self.__class__.__name__),
+            or AccountConfiguration.generate(self.__class__.__name__),
             avatar=avatar,
             log_level=log_level,
             server_configuration=server_configuration,
@@ -274,8 +276,15 @@ class Player(ABC):
             battle = await self._get_battle(split_messages[0][0])
 
         for split_message in split_messages[1:]:
-            if len(split_message) <= 1:
+            if not split_message:
                 continue
+            elif len(split_message) == 1:
+                if (
+                    battle.teampreview
+                    and self.accept_open_team_sheet
+                    and "rejected open team sheets." in split_message[0]
+                ):
+                    await self._handle_battle_request(battle)
             elif split_message[1] == "":
                 battle.parse_message(split_message)
             elif split_message[1] in self.MESSAGES_TO_IGNORE:
@@ -293,22 +302,25 @@ class Player(ABC):
                         await self._handle_battle_request(battle)
             elif split_message[1] == "showteam":
                 role = split_message[2]
-                pokemon_messages = "|".join(split_message[3:]).split("]")
-                for msg in pokemon_messages:
-                    name, *_ = msg.split("|")
-                    teampreview_team = (
-                        battle.teampreview_team
-                        if role == battle.player_role
-                        else battle.teampreview_opponent_team
-                    )
-                    teampreview_mon = [
-                        p for p in teampreview_team if p.base_species in to_id_str(name)
+                teambuilder_team = Teambuilder.parse_packed_team(
+                    "|".join(split_message[3:])
+                )
+                teampreview_team = (
+                    battle.teampreview_team
+                    if role == battle.player_role
+                    else battle.teampreview_opponent_team
+                )
+                for preview_mon in teampreview_team:
+                    teambuilder_mon = [
+                        m
+                        for m in teambuilder_team
+                        if preview_mon.base_species in to_id_str(m.nickname)
                     ][0]
                     mon = battle.get_pokemon(
-                        f"{role}: {name}", details=teampreview_mon._last_details
+                        f"{role}: {teambuilder_mon.nickname}",
+                        details=preview_mon._last_details,
                     )
-                    teambuilder = TeambuilderPokemon.parse_showteam_pkmn_substr(msg)
-                    mon._update_from_teambuilder(teambuilder)
+                    mon._update_from_teambuilder(teambuilder_mon)
                 # only handle battle request after all open sheets are processed
                 if role == "p2":
                     await self._handle_battle_request(battle)
@@ -322,12 +334,18 @@ class Player(ABC):
                 self._battle_finished_callback(battle)
                 async with self._battle_end_condition:
                     self._battle_end_condition.notify_all()
-                await self.ps_client.send_message(f"/leave {battle.battle_tag}")
+                if hasattr(self.ps_client, "websocket"):
+                    await self.ps_client.send_message(f"/leave {battle.battle_tag}")
             elif split_message[1] == "error":
                 self.logger.log(
                     25, "Error message received: %s", "|".join(split_message)
                 )
                 if split_message[2].startswith(
+                    "[Invalid choice] Sorry, too late to make a different move"
+                ):
+                    if battle.trapped:
+                        self._trying_again.set()
+                elif split_message[2].startswith(
                     "[Unavailable choice] Can't switch: The active Pokémon is "
                     "trapped"
                 ) or split_message[2].startswith(
@@ -522,16 +540,16 @@ class Player(ABC):
         return DefaultBattleOrder()
 
     @staticmethod
-    def choose_random_doubles_move(battle: DoubleBattle) -> BattleOrder:
-        active_orders: List[List[BattleOrder]] = [[], []]
+    def choose_random_doubles_move(battle: DoubleBattle) -> DoubleBattleOrder:
+        active_orders: List[List[SingleBattleOrder]] = [[], []]
 
         if any(battle.force_switch):
-            first_order = None
-            second_order = None
+            first_order: SingleBattleOrder = PassBattleOrder()
+            second_order: SingleBattleOrder = PassBattleOrder()
 
             if battle.force_switch[0] and battle.available_switches[0]:
                 first_switch_in = random.choice(battle.available_switches[0])
-                first_order = BattleOrder(first_switch_in)
+                first_order = SingleBattleOrder(first_switch_in)
             else:
                 first_switch_in = None
 
@@ -542,7 +560,7 @@ class Player(ABC):
 
                 if available_switches:
                     second_switch_in = random.choice(available_switches)
-                    second_order = BattleOrder(second_switch_in)
+                    second_order = SingleBattleOrder(second_switch_in)
 
             return DoubleBattleOrder(first_order, second_order)
 
@@ -573,17 +591,17 @@ class Player(ABC):
             }
             orders.extend(
                 [
-                    BattleOrder(move, move_target=target)
+                    SingleBattleOrder(move, move_target=target)
                     for move in moves
                     for target in targets[move]
                 ]
             )
-            orders.extend([BattleOrder(switch) for switch in switches])
+            orders.extend([SingleBattleOrder(switch) for switch in switches])
 
             if can_mega:
                 orders.extend(
                     [
-                        BattleOrder(move, move_target=target, mega=True)
+                        SingleBattleOrder(move, move_target=target, mega=True)
                         for move in moves
                         for target in targets[move]
                     ]
@@ -592,7 +610,7 @@ class Player(ABC):
                 available_z_moves = set(mon.available_z_moves)
                 orders.extend(
                     [
-                        BattleOrder(move, move_target=target, z_move=True)
+                        SingleBattleOrder(move, move_target=target, z_move=True)
                         for move in moves
                         for target in targets[move]
                         if move in available_z_moves
@@ -602,7 +620,7 @@ class Player(ABC):
             if can_dynamax:
                 orders.extend(
                     [
-                        BattleOrder(move, move_target=target, dynamax=True)
+                        SingleBattleOrder(move, move_target=target, dynamax=True)
                         for move in moves
                         for target in targets[move]
                     ]
@@ -611,7 +629,7 @@ class Player(ABC):
             if can_tera:
                 orders.extend(
                     [
-                        BattleOrder(move, move_target=target, terastallize=True)
+                        SingleBattleOrder(move, move_target=target, terastallize=True)
                         for move in moves
                         for target in targets[move]
                     ]
@@ -625,26 +643,29 @@ class Player(ABC):
             return DefaultBattleOrder()
 
     @staticmethod
-    def choose_random_singles_move(battle: Battle) -> BattleOrder:
-        available_orders = [BattleOrder(move) for move in battle.available_moves]
+    def choose_random_singles_move(battle: Battle) -> SingleBattleOrder:
+        available_orders = [SingleBattleOrder(move) for move in battle.available_moves]
         available_orders.extend(
-            [BattleOrder(switch) for switch in battle.available_switches]
+            [SingleBattleOrder(switch) for switch in battle.available_switches]
         )
 
         if battle.can_mega_evolve:
             available_orders.extend(
-                [BattleOrder(move, mega=True) for move in battle.available_moves]
+                [SingleBattleOrder(move, mega=True) for move in battle.available_moves]
             )
 
         if battle.can_dynamax:
             available_orders.extend(
-                [BattleOrder(move, dynamax=True) for move in battle.available_moves]
+                [
+                    SingleBattleOrder(move, dynamax=True)
+                    for move in battle.available_moves
+                ]
             )
 
         if battle.can_tera:
             available_orders.extend(
                 [
-                    BattleOrder(move, terastallize=True)
+                    SingleBattleOrder(move, terastallize=True)
                     for move in battle.available_moves
                 ]
             )
@@ -653,7 +674,7 @@ class Player(ABC):
             available_z_moves = set(battle.active_pokemon.available_z_moves)
             available_orders.extend(
                 [
-                    BattleOrder(move, z_move=True)
+                    SingleBattleOrder(move, z_move=True)
                     for move in battle.available_moves
                     if move in available_z_moves
                 ]
@@ -827,7 +848,7 @@ class Player(ABC):
         dynamax: bool = False,
         terastallize: bool = False,
         move_target: int = DoubleBattle.EMPTY_TARGET_POSITION,
-    ) -> BattleOrder:
+    ) -> SingleBattleOrder:
         """Formats an move order corresponding to the provided pokemon or move.
 
         :param order: Move to make or Pokemon to switch to.
@@ -845,7 +866,7 @@ class Player(ABC):
         :return: Formatted move order
         :rtype: str
         """
-        return BattleOrder(
+        return SingleBattleOrder(
             order,
             mega=mega,
             move_target=move_target,

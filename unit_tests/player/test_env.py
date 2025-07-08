@@ -8,9 +8,7 @@ import numpy as np
 import numpy.typing as npt
 from gymnasium.spaces import Box, Discrete
 
-from poke_env import AccountConfiguration, ServerConfiguration
-from poke_env.concurrency import POKE_LOOP
-from poke_env.environment import (
+from poke_env.battle import (
     AbstractBattle,
     Battle,
     DoubleBattle,
@@ -19,16 +17,16 @@ from poke_env.environment import (
     PokemonType,
     Status,
 )
+from poke_env.concurrency import POKE_LOOP
+from poke_env.environment import DoublesEnv, PokeEnv, SinglesEnv
+from poke_env.environment.env import _AsyncQueue, _EnvPlayer
 from poke_env.player import (
     BattleOrder,
     DoubleBattleOrder,
-    DoublesEnv,
     ForfeitBattleOrder,
     Player,
-    PokeEnv,
-    SinglesEnv,
 )
-from poke_env.player.env import _AsyncQueue, _EnvPlayer
+from poke_env.ps_client import AccountConfiguration, ServerConfiguration
 
 account_configuration1 = AccountConfiguration("username1", "password1")
 account_configuration2 = AccountConfiguration("username2", "password2")
@@ -69,8 +67,6 @@ def test_queue():
     q.queue.task_done()
     assert q.empty()
     assert item == 2
-    asyncio.get_event_loop().run_until_complete(q.async_join())
-    q.join()
 
 
 def test_async_player():
@@ -399,16 +395,14 @@ def test_singles_action_order_conversions():
         ],
         start=4,
     ):
-        p = SinglesEnv(
-            battle_format=f"gen{gen}randombattle",
-            start_listening=False,
-        )
+        p = SinglesEnv(battle_format=f"gen{gen}randombattle", start_listening=False)
         battle = Battle("bat1", p.agent1.username, p.agent1.logger, gen=gen)
         active_pokemon = Pokemon(species="charizard", gen=gen)
         move = Move("flamethrower", gen=gen)
         active_pokemon._moves = {move.id: move}
         active_pokemon._active = True
         active_pokemon._item = "firiumz"
+        active_pokemon._terastallized_type = PokemonType.FIRE
         battle._team = {"charizard": active_pokemon}
         assert p.action_to_order(np.int64(-1), battle).message == "/forfeit"
         check_action_order_roundtrip(p, ForfeitBattleOrder(), battle)
@@ -456,7 +450,7 @@ def test_singles_action_order_conversions():
                 p, Player.create_order(move, dynamax=True), battle
             )
         if has_tera:
-            battle._can_tera = PokemonType.FIRE
+            battle._can_tera = True
             assert (
                 p.action_to_order(np.int64(6 + 4 + 12), battle).message
                 == "/choose move flamethrower terastallize"
@@ -475,8 +469,7 @@ def test_doubles_action_order_conversions():
         start=8,
     ):
         p = DoublesEnv(
-            battle_format=f"gen{gen}randomdoublesbattle",
-            start_listening=False,
+            battle_format=f"gen{gen}randomdoublesbattle", start_listening=False
         )
         battle = DoubleBattle("bat1", p.agent1.username, p.agent1.logger, gen=gen)
         battle._player_role = "p1"

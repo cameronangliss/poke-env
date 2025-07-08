@@ -1,26 +1,37 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from typing import Any, List, Optional, Union
+from abc import abstractmethod
+from dataclasses import dataclass, field
+from typing import List, Union
 
-from poke_env.environment.double_battle import DoubleBattle
-from poke_env.environment.move import Move
-from poke_env.environment.pokemon import Pokemon
+from poke_env.battle.move import Move
+from poke_env.battle.pokemon import Pokemon
+
+
+class BattleOrder:
+    def __str__(self) -> str:
+        return self.message
+
+    @property
+    @abstractmethod
+    def message(self) -> str:
+        pass
+
+
+class ForfeitBattleOrder(BattleOrder):
+    @property
+    def message(self) -> str:
+        return "/forfeit"
 
 
 @dataclass
-class BattleOrder:
-    order: Optional[Union[Move, Pokemon]]
+class SingleBattleOrder(BattleOrder):
+    order: Union[Move, Pokemon, str]
     mega: bool = False
     z_move: bool = False
     dynamax: bool = False
     terastallize: bool = False
-    move_target: int = DoubleBattle.EMPTY_TARGET_POSITION
-
-    DEFAULT_ORDER = "/choose default"
-
-    def __str__(self) -> str:
-        return self.message
+    move_target: int = 0
 
     @property
     def message(self) -> str:
@@ -38,90 +49,53 @@ class BattleOrder:
             elif self.terastallize:
                 message += " terastallize"
 
-            if self.move_target != DoubleBattle.EMPTY_TARGET_POSITION:
+            if self.move_target != 0:
                 message += f" {self.move_target}"
             return message
         elif isinstance(self.order, Pokemon):
             return f"/choose switch {self.order.species}"
         else:
-            return ""
+            return self.order
 
 
-class DefaultBattleOrder(BattleOrder):
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
-
-    @property
-    def message(self) -> str:
-        return self.DEFAULT_ORDER
-
-
-class StringBattleOrder(BattleOrder):
-    def __init__(self, string: str):
-        self._message = string
-
-    @property
-    def message(self) -> str:
-        return self._message
+class PassBattleOrder(SingleBattleOrder):
+    def __init__(self):
+        super().__init__("/choose pass")
 
 
 @dataclass
 class DoubleBattleOrder(BattleOrder):
-    def __init__(
-        self,
-        first_order: Optional[BattleOrder] = None,
-        second_order: Optional[BattleOrder] = None,
-    ):
-        self.first_order = first_order
-        self.second_order = second_order
+    first_order: SingleBattleOrder = field(default_factory=PassBattleOrder)
+    second_order: SingleBattleOrder = field(default_factory=PassBattleOrder)
 
     @property
     def message(self) -> str:
-        if self.first_order and self.second_order:
-            return (
-                self.first_order.message
-                + ", "
-                + self.second_order.message.replace("/choose ", "")
-            )
-        elif self.first_order:
-            return self.first_order.message + ", pass"
-        elif self.second_order:
-            return "/choose pass, " + self.second_order.message.replace("/choose ", "")
-        else:
-            return "/choose pass, pass"
+        return f"{self.first_order.message}, {self.second_order.message[8:]}"
 
     @staticmethod
     def join_orders(
-        first_orders: List[BattleOrder], second_orders: List[BattleOrder]
+        first_orders: List[SingleBattleOrder], second_orders: List[SingleBattleOrder]
     ) -> List[DoubleBattleOrder]:
-        if first_orders and second_orders:
-            return [
-                DoubleBattleOrder(first_order=first_order, second_order=second_order)
-                for first_order in first_orders
-                for second_order in second_orders
-                if not (
-                    hasattr(first_order, "order") and hasattr(second_order, "order")
-                )
-                or (
-                    not (first_order.mega and second_order.mega)
-                    and not (first_order.z_move and second_order.z_move)
-                    and not (first_order.dynamax and second_order.dynamax)
-                    and not (first_order.terastallize and second_order.terastallize)
-                    and first_order.order != second_order.order
-                )
-            ]
-        elif first_orders:
-            return [DoubleBattleOrder(order, None) for order in first_orders]
-        elif second_orders:
-            return [DoubleBattleOrder(None, order) for order in second_orders]
-        else:
-            return [DoubleBattleOrder(None, None)]
+        return [
+            DoubleBattleOrder(first_order=first_order, second_order=second_order)
+            for first_order in first_orders or [PassBattleOrder()]
+            for second_order in second_orders or [PassBattleOrder()]
+            if not (first_order.mega and second_order.mega)
+            if not (first_order.z_move and second_order.z_move)
+            if not (first_order.dynamax and second_order.dynamax)
+            if not (first_order.terastallize and second_order.terastallize)
+            if not (
+                isinstance(first_order.order, Pokemon)
+                and isinstance(second_order.order, Pokemon)
+                and str(first_order) == str(second_order)
+            )
+            if not (
+                isinstance(first_order, PassBattleOrder)
+                and isinstance(second_order, PassBattleOrder)
+            )
+        ]
 
 
-class ForfeitBattleOrder(BattleOrder):
-    def __init__(self, *args: Any, **kwargs: Any):
-        pass
-
-    @property
-    def message(self) -> str:
-        return "/forfeit"
+class DefaultBattleOrder(SingleBattleOrder, DoubleBattleOrder):
+    def __init__(self):
+        super().__init__("/choose default")

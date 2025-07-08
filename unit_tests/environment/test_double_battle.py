@@ -2,7 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from poke_env.environment import DoubleBattle, Effect, Field, Move, Pokemon, PokemonType
+from poke_env.battle import DoubleBattle, Effect, Field, Move, Pokemon, PokemonType
 
 
 def test_battle_request_parsing(example_doubles_request):
@@ -108,7 +108,7 @@ def test_battle_request_parsing_and_interactions(example_doubles_request):
     assert milotic.species == "milotic"
     assert tyranitar.species == "tyranitar"
 
-    assert all(battle.opponent_can_dynamax)
+    assert not battle.opponent_used_dynamax
 
     assert battle.current_observation
     assert battle.current_observation.events[0] == ["", "swap", "p1b: Klinklang", ""]

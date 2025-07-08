@@ -2,8 +2,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from poke_env.data import GenData
-from poke_env.environment import (
+from poke_env.battle import (
     Battle,
     Effect,
     Field,
@@ -12,6 +11,7 @@ from poke_env.environment import (
     Status,
     Weather,
 )
+from poke_env.data import GenData
 
 
 def test_battle_get_pokemon():
@@ -466,7 +466,7 @@ def test_battle_request_and_interactions(example_request):
     assert msg_type in str(excinfo.value)
 
     assert not battle.maybe_trapped
-    assert battle.opponent_can_dynamax
+    assert not battle.opponent_used_dynamax
 
     assert battle.grounded
     assert battle.is_grounded(battle.opponent_active_pokemon)
