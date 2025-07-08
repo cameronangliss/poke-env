@@ -14,7 +14,6 @@ from poke_env.player.battle_order import (
     PassBattleOrder,
     SingleBattleOrder,
 )
-
 from poke_env.player.player import Player
 from poke_env.player.utils import (
     background_cross_evaluate,
