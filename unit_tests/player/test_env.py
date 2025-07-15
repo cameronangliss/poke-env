@@ -22,9 +22,11 @@ from poke_env.environment import DoublesEnv, PokeEnv, SinglesEnv
 from poke_env.environment.env import _AsyncQueue, _EnvPlayer
 from poke_env.player import (
     BattleOrder,
+    DefaultBattleOrder,
     DoubleBattleOrder,
     ForfeitBattleOrder,
     Player,
+    SingleBattleOrder,
 )
 from poke_env.ps_client import AccountConfiguration, ServerConfiguration
 
@@ -401,6 +403,12 @@ def test_singles_action_order_conversions():
         battle._available_switches = []
         with pytest.raises(ValueError):
             p.action_to_order(np.int64(9), battle)
+        p.action_to_order(np.int64(9), battle, strict=False)
+        with pytest.raises(ValueError):
+            p.order_to_action(SingleBattleOrder(Move("earthquake", gen=gen)), battle)
+        p.order_to_action(
+            SingleBattleOrder(Move("earthquake", gen=gen)), battle, strict=False
+        )
         if has_megas:
             battle._can_mega_evolve = True
             assert (
@@ -461,6 +469,7 @@ def test_doubles_action_order_conversions():
         battle._opponent_active_pokemon = {"p2a": active_pokemon}
         battle._active_pokemon = {"p1a": active_pokemon}
         assert p.action_to_order(np.array([-1, 0]), battle).message == "/forfeit"
+        check_action_order_roundtrip(p, DefaultBattleOrder(), battle)
         check_action_order_roundtrip(p, ForfeitBattleOrder(), battle)
         battle._available_moves = [[move], []]
         assert (
@@ -472,15 +481,51 @@ def test_doubles_action_order_conversions():
         )
         battle._available_switches = [[active_pokemon], []]
         assert (
-            p.action_to_order(np.array([1, 0]), battle).message
-            == "/choose switch charizard, pass"
+            p.action_to_order(np.array([1, -2]), battle).message
+            == "/choose switch charizard, default"
         )
         check_action_order_roundtrip(
-            p, DoubleBattleOrder(Player.create_order(active_pokemon)), battle
+            p,
+            DoubleBattleOrder(
+                Player.create_order(active_pokemon), DefaultBattleOrder()
+            ),
+            battle,
+        )
+        with pytest.raises(ValueError):
+            p.action_to_order(np.array([1, 1]), battle)
+        p.action_to_order(np.array([1, 1]), battle, strict=False)
+        with pytest.raises(ValueError):
+            p.order_to_action(
+                DoubleBattleOrder(
+                    SingleBattleOrder(active_pokemon), SingleBattleOrder(active_pokemon)
+                ),
+                battle,
+            )
+        p.order_to_action(
+            DoubleBattleOrder(
+                SingleBattleOrder(active_pokemon), SingleBattleOrder(active_pokemon)
+            ),
+            battle,
+            strict=False,
         )
         battle._available_switches = [[], []]
         with pytest.raises(ValueError):
-            p.action_to_order(np.array([25, 0]), battle)
+            p.action_to_order(np.array([25, -2]), battle)
+        p.action_to_order(np.array([25, -2]), battle, strict=False)
+        with pytest.raises(ValueError):
+            p.order_to_action(
+                DoubleBattleOrder(
+                    Player.create_order(Move("earthquake", 9)), DefaultBattleOrder()
+                ),
+                battle,
+            )
+        p.order_to_action(
+            DoubleBattleOrder(
+                Player.create_order(Move("earthquake", 9)), DefaultBattleOrder()
+            ),
+            battle,
+            strict=False,
+        )
         if has_megas:
             battle._can_mega_evolve = [True, True]
             assert (
@@ -519,7 +564,7 @@ def test_doubles_action_order_conversions():
                 battle,
             )
         if has_tera:
-            battle._can_tera = [PokemonType.FIRE, PokemonType.FIRE]
+            battle._can_tera = [True, True]
             assert (
                 p.action_to_order(np.array([90, 0]), battle).message
                 == "/choose move flamethrower terastallize 1, pass"
