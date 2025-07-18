@@ -138,7 +138,6 @@ class DoubleBattle(AbstractBattle):
                     force_self_team=True,
                     details=pokemon_dict["details"],
                 )
-
                 if self.player_role is not None:
                     if (
                         active_pokemon_number == 0
