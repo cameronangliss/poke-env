@@ -1,12 +1,17 @@
 from logging import Logger
 from typing import Any, Dict, List, Optional, Union
 
-from poke_env.environment.abstract_battle import AbstractBattle
-from poke_env.environment.move import SPECIAL_MOVES, Move
-from poke_env.environment.move_category import MoveCategory
-from poke_env.environment.pokemon import Pokemon
-from poke_env.environment.pokemon_type import PokemonType
-from poke_env.environment.target import Target
+from poke_env.battle.abstract_battle import AbstractBattle
+from poke_env.battle.move import SPECIAL_MOVES, Move
+from poke_env.battle.move_category import MoveCategory
+from poke_env.battle.pokemon import Pokemon
+from poke_env.battle.pokemon_type import PokemonType
+from poke_env.battle.target import Target
+from poke_env.player.battle_order import (
+    DefaultBattleOrder,
+    PassBattleOrder,
+    SingleBattleOrder,
+)
 
 
 class DoubleBattle(AbstractBattle):
@@ -31,13 +36,10 @@ class DoubleBattle(AbstractBattle):
         # Turn choice attributes
         self._available_moves: List[List[Move]] = [[], []]
         self._available_switches: List[List[Pokemon]] = [[], []]
-        self._can_mega_evolve: List[bool] = [False, False]
-        self._can_z_move: List[bool] = [False, False]
         self._can_dynamax: List[bool] = [False, False]
-        self._can_tera: List[Union[bool, PokemonType]] = [False, False]
-        self._opponent_can_dynamax: List[bool] = [True, True]
-        self._opponent_can_mega_evolve: List[bool] = [True, True]
-        self._opponent_can_z_move: List[bool] = [True, True]
+        self._can_mega_evolve: List[bool] = [False, False]
+        self._can_tera: List[bool] = [False, False]
+        self._can_z_move: List[bool] = [False, False]
         self._force_switch: List[bool] = [False, False]
         self._maybe_trapped: List[bool] = [False, False]
         self._trapped: List[bool] = [False, False]
@@ -106,9 +108,9 @@ class DoubleBattle(AbstractBattle):
         self._can_mega_evolve = [False, False]
         self._can_z_move = [False, False]
         self._can_dynamax = [False, False]
+        self._can_tera = [False, False]
         self._maybe_trapped = [False, False]
         self._trapped = [False, False]
-        self._can_tera = [False, False]
         self._force_switch = request.get("forceSwitch", [False, False])
         self._reviving = any(
             [mon.get("reviving") for mon in request["side"]["pokemon"]]
@@ -150,9 +152,15 @@ class DoubleBattle(AbstractBattle):
                 if active_request.get("trapped"):
                     self._trapped[active_pokemon_number] = True
 
-                self._available_moves[active_pokemon_number] = (
-                    active_pokemon.available_moves_from_request(active_request)
-                )
+                # TODO: the illusion handling here works around Zoroark's
+                # difficulties. This should be properly handled at some point.
+                try:
+                    self._available_moves[active_pokemon_number] = (
+                        active_pokemon.available_moves_from_request(active_request)
+                    )
+                except AssertionError as e:
+                    if "illusion" not in [p.ability for p in self.team.values()]:
+                        raise e
 
                 if active_request.get("canMegaEvo", False):
                     self._can_mega_evolve[active_pokemon_number] = True
@@ -161,25 +169,16 @@ class DoubleBattle(AbstractBattle):
                 if active_request.get("canDynamax", False):
                     self._can_dynamax[active_pokemon_number] = True
                 if active_request.get("canTerastallize", False):
-                    self._can_tera[active_pokemon_number] = PokemonType.from_name(
-                        active_request["canTerastallize"]
-                    )
+                    self._can_tera[active_pokemon_number] = True
                 if active_request.get("maybeTrapped", False):
                     self._maybe_trapped[active_pokemon_number] = True
 
-        for pokemon_index, trapped in enumerate(self.trapped):
-            if (not trapped) or self.force_switch[pokemon_index]:
-                for pokemon in side["pokemon"]:
-                    if pokemon:
-                        pokemon = self._team[pokemon["ident"]]
-                        if (
-                            not self.reviving
-                            and not pokemon.active
-                            and not pokemon.fainted
-                        ):
-                            self._available_switches[pokemon_index].append(pokemon)
-                        if self.reviving and not pokemon.active and pokemon.fainted:
-                            self._available_switches[pokemon_index].append(pokemon)
+        for i in range(2):
+            if not self.trapped[i]:
+                for pkmn_json in side["pokemon"]:
+                    pokemon = self.team[pkmn_json["ident"]]
+                    if not pokemon.active and self.reviving == pokemon.fainted:
+                        self._available_switches[i].append(pokemon)
 
     def switch(self, pokemon_str: str, details: str, hp_status: str):
         pokemon_identifier = pokemon_str.split(":")[0][:3]
@@ -232,6 +231,8 @@ class DoubleBattle(AbstractBattle):
 
         :param move: Move instance for which possible targets should be returned
         :type move: Move
+        :param pokemon: The ally using the move.
+        :type pokemon: Pokemon
         :param dynamax: whether given move also STARTS dynamax for its user
         :return: a list of integers indicating Pokemon Showdown targets:
             -1, -2, 1, 2 or self.EMPTY_TARGET_POSITION that indicates "no target"
@@ -389,22 +390,6 @@ class DoubleBattle(AbstractBattle):
         return self._available_switches
 
     @property
-    def can_mega_evolve(self) -> List[bool]:
-        """
-        :return: Whether or not either current active pokemon can mega evolve.
-        :rtype: List[bool]
-        """
-        return self._can_mega_evolve
-
-    @property
-    def can_z_move(self) -> List[bool]:
-        """
-        :return: Whether or not the current active pokemon can z-move.
-        :rtype: List[bool]
-        """
-        return self._can_z_move
-
-    @property
     def can_dynamax(self) -> List[bool]:
         """
         :return: Whether or not the current active pokemon can dynamax
@@ -413,12 +398,28 @@ class DoubleBattle(AbstractBattle):
         return self._can_dynamax
 
     @property
-    def can_tera(self) -> List[Union[bool, PokemonType]]:
+    def can_mega_evolve(self) -> List[bool]:
+        """
+        :return: Whether or not either current active pokemon can mega evolve.
+        :rtype: List[bool]
+        """
+        return self._can_mega_evolve
+
+    @property
+    def can_tera(self) -> List[bool]:
         """
         :return: Whether or not the current active pokemon can terastallize. If yes, will be a PokemonType.
         :rtype: List[Union[bool, PokemonType]]
         """
         return self._can_tera
+
+    @property
+    def can_z_move(self) -> List[bool]:
+        """
+        :return: Whether or not the current active pokemon can z-move.
+        :rtype: List[bool]
+        """
+        return self._can_z_move
 
     @property
     def force_switch(self) -> List[bool]:
@@ -461,51 +462,6 @@ class DoubleBattle(AbstractBattle):
         )
 
     @property
-    def opponent_can_dynamax(self) -> List[bool]:
-        """
-        :return: Whether or not opponent's current active pokemons can dynamax
-        :rtype: List[bool]
-        """
-        return self._opponent_can_dynamax
-
-    @opponent_can_dynamax.setter
-    def opponent_can_dynamax(self, value: Union[bool, List[bool]]):
-        if isinstance(value, bool):
-            self._opponent_can_dynamax = [value, value]
-        else:
-            self._opponent_can_dynamax = value
-
-    @property
-    def opponent_can_mega_evolve(self) -> List[bool]:
-        """
-        :return: Whether or not opponent's current active pokemons can mega evolve
-        :rtype: List[bool]
-        """
-        return self._opponent_can_mega_evolve
-
-    @opponent_can_mega_evolve.setter
-    def opponent_can_mega_evolve(self, value: Union[bool, List[bool]]):
-        if isinstance(value, bool):
-            self._opponent_can_mega_evolve = [value, value]
-        else:
-            self._opponent_can_mega_evolve = value  # type: ignore
-
-    @property
-    def opponent_can_z_move(self) -> List[bool]:
-        """
-        :return: Whether or not opponent's current active pokemons can z-move
-        :rtype: List[bool]
-        """
-        return self._opponent_can_z_move
-
-    @opponent_can_z_move.setter
-    def opponent_can_z_move(self, value: Union[bool, List[bool]]):
-        if isinstance(value, bool):
-            self._opponent_can_z_move = [value, value]
-        else:
-            self._opponent_can_z_move = value  # type: ignore
-
-    @property
     def trapped(self) -> List[bool]:
         """
         :return: A boolean indicating whether either active pokemon is trapped by the
@@ -517,6 +473,66 @@ class DoubleBattle(AbstractBattle):
     @trapped.setter
     def trapped(self, value: List[bool]):
         self._trapped = value
+
+    @property
+    def valid_orders(self) -> List[List[SingleBattleOrder]]:
+        orders: List[List[SingleBattleOrder]] = [[], []]
+        if self._wait:
+            return [[DefaultBattleOrder()], [DefaultBattleOrder()]]
+        for i in range(2):
+            if any(self.force_switch) and not self.force_switch[i]:
+                orders[i] += [PassBattleOrder()]
+                continue
+            if not self.trapped[i]:
+                orders[i] += [
+                    SingleBattleOrder(mon) for mon in self.available_switches[i]
+                ]
+            if all(self.force_switch) and len(self.available_switches[0]) == 1:
+                orders[i] += [PassBattleOrder()]
+                continue
+            active_mon = self.active_pokemon[i]
+            if active_mon is not None and not self.force_switch[i]:
+                orders[i] += [
+                    SingleBattleOrder(move, move_target=target)
+                    for move in self.available_moves[i]
+                    for target in self.get_possible_showdown_targets(move, active_mon)
+                ]
+                if self.can_mega_evolve[i]:
+                    orders[i] += [
+                        SingleBattleOrder(move, move_target=target, mega=True)
+                        for move in self.available_moves[i]
+                        for target in self.get_possible_showdown_targets(
+                            move, active_mon
+                        )
+                    ]
+                if self.can_z_move[i]:
+                    orders[i] += [
+                        SingleBattleOrder(move, move_target=target, z_move=True)
+                        for move in self.available_moves[i]
+                        for target in self.get_possible_showdown_targets(
+                            move, active_mon
+                        )
+                        if move in active_mon.available_z_moves
+                    ]
+                if self.can_dynamax[i]:
+                    orders[i] += [
+                        SingleBattleOrder(move, move_target=target, dynamax=True)
+                        for move in self.available_moves[i]
+                        for target in self.get_possible_showdown_targets(
+                            move, active_mon, dynamax=True
+                        )
+                    ]
+                if self.can_tera[i]:
+                    orders[i] += [
+                        SingleBattleOrder(move, move_target=target, terastallize=True)
+                        for move in self.available_moves[i]
+                        for target in self.get_possible_showdown_targets(
+                            move, active_mon
+                        )
+                    ]
+            if not orders[i]:
+                orders[i] += [PassBattleOrder()]
+        return orders
 
     @property
     def reviving(self) -> bool:

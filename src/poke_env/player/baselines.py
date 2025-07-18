@@ -1,20 +1,27 @@
 import random
-from typing import List, Optional, Tuple
+from typing import List, Tuple
 
-from poke_env.environment.abstract_battle import AbstractBattle
-from poke_env.environment.battle import Battle
-from poke_env.environment.double_battle import DoubleBattle
-from poke_env.environment.move import Move
-from poke_env.environment.move_category import MoveCategory
-from poke_env.environment.pokemon import Pokemon
-from poke_env.environment.side_condition import SideCondition
-from poke_env.environment.target import Target
+from poke_env.battle.abstract_battle import AbstractBattle
+from poke_env.battle.battle import Battle
+from poke_env.battle.double_battle import DoubleBattle
+from poke_env.battle.move import Move
+from poke_env.battle.move_category import MoveCategory
+from poke_env.battle.pokemon import Pokemon
+from poke_env.battle.side_condition import SideCondition
+from poke_env.battle.target import Target
 from poke_env.player.battle_order import (
     BattleOrder,
     DefaultBattleOrder,
     DoubleBattleOrder,
+    PassBattleOrder,
+    SingleBattleOrder,
 )
 from poke_env.player.player import Player
+
+
+class RandomPlayer(Player):
+    def choose_move(self, battle: AbstractBattle) -> BattleOrder:
+        return self.choose_random_move(battle)
 
 
 class MaxBasePowerPlayer(Player):
@@ -31,7 +38,7 @@ class MaxBasePowerPlayer(Player):
         return self.choose_random_move(battle)
 
     def choose_doubles_move(self, battle: DoubleBattle):
-        orders: List[Optional[BattleOrder]] = []
+        orders: List[SingleBattleOrder] = []
         switched_in = None
 
         if any(battle.force_switch):
@@ -53,11 +60,11 @@ class MaxBasePowerPlayer(Player):
             switches = [s for s in switches if s != switched_in]
 
             if not mon or mon.fainted:
-                orders.append(None)
+                orders.append(PassBattleOrder())
                 continue
             elif not moves and switches:
                 mon_to_switch_in = random.choice(switches)
-                orders.append(BattleOrder(mon_to_switch_in))
+                orders.append(SingleBattleOrder(mon_to_switch_in))
                 switched_in = mon_to_switch_in
                 continue
             elif not moves:
@@ -83,7 +90,7 @@ class MaxBasePowerPlayer(Player):
             else:
                 target = random.choice(targets)
 
-            orders.append(BattleOrder(best_move, move_target=target))
+            orders.append(SingleBattleOrder(best_move, move_target=target))
 
         if orders[0] or orders[1]:
             return DoubleBattleOrder(orders[0], orders[1])
@@ -99,13 +106,15 @@ class PseudoBattle(Battle):
         self._opponent_team = battle.opponent_team
         self._available_moves = battle.available_moves[active_id]
         self._available_switches = battle.available_switches[active_id]
+        self._force_switch = battle.force_switch[active_id]
+        self._trapped = battle.trapped[active_id]
+        self._wait = battle._wait
         self._side_conditions = battle.side_conditions
         self._opponent_side_conditions = battle.opponent_side_conditions
         self._can_mega_evolve = battle.can_mega_evolve[active_id]
         self._can_z_move = battle.can_z_move[active_id]
         self._can_dynamax = battle.can_dynamax[active_id]
-        can_tera = battle.can_tera[active_id]
-        self._can_tera = None if isinstance(can_tera, bool) else can_tera
+        self._can_tera = battle.can_tera[active_id]
 
     @property
     def active_pokemon(self):
@@ -232,13 +241,13 @@ class SimpleHeuristicsPlayer(Player):
             boost = 2 / (2 - mon.boosts[stat])
         return ((2 * mon.base_stats[stat] + 31) + 5) * boost
 
-    def choose_move_in_1v1(self, battle: Battle) -> Tuple[BattleOrder, float]:
+    def choose_move_in_1v1(self, battle: Battle) -> Tuple[SingleBattleOrder, float]:
         # Main mons shortcuts
         active = battle.active_pokemon
         opponent = battle.opponent_active_pokemon
 
         if active is None or opponent is None:
-            return self.choose_random_move(battle), 0
+            return self.choose_random_singles_move(battle), 0
 
         # Rough estimation of damage ratio
         physical_ratio = self._stat_estimation(active, "atk") / self._stat_estimation(
@@ -332,10 +341,10 @@ class SimpleHeuristicsPlayer(Player):
                 0,
             )
 
-        return self.choose_random_move(battle), 0
+        return self.choose_random_singles_move(battle), 0
 
     @staticmethod
-    def get_double_target_multiplier(battle: DoubleBattle, order: BattleOrder):
+    def get_double_target_multiplier(battle: DoubleBattle, order: SingleBattleOrder):
         can_target_first_opponent = (
             battle.opponent_active_pokemon[0]
             and not battle.opponent_active_pokemon[0].fainted
@@ -357,13 +366,13 @@ class SimpleHeuristicsPlayer(Player):
     def choose_move(self, battle: AbstractBattle):
         if not isinstance(battle, DoubleBattle):
             return self.choose_move_in_1v1(battle)[0]  # type: ignore
-        orders: List[Optional[BattleOrder]] = []
+        orders: List[SingleBattleOrder] = []
         for active_id in [0, 1]:
             if (
                 battle.active_pokemon[active_id] is None
                 and not battle.available_switches[active_id]
             ):
-                orders += [None]
+                orders += [PassBattleOrder()]
                 continue
             results = [
                 self.choose_move_in_1v1(PseudoBattle(battle, active_id, opp_id))
@@ -400,13 +409,10 @@ class SimpleHeuristicsPlayer(Player):
                         and battle.force_switch == [True, True]
                         and active_id == 1
                     )
-                    else None
+                    else PassBattleOrder()
                 )
             ]
-        joined_orders = DoubleBattleOrder.join_orders(
-            [orders[0]] if orders[0] is not None else [],
-            [orders[1]] if orders[1] is not None else [],
-        )
+        joined_orders = DoubleBattleOrder.join_orders([orders[0]], [orders[1]])
         if joined_orders:
             return joined_orders[0]
         else:

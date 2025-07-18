@@ -2,13 +2,13 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Union
 
+from poke_env.battle.effect import Effect
+from poke_env.battle.move import SPECIAL_MOVES, Move
+from poke_env.battle.pokemon_gender import PokemonGender
+from poke_env.battle.pokemon_type import PokemonType
+from poke_env.battle.status import Status
+from poke_env.battle.z_crystal import Z_CRYSTAL
 from poke_env.data import GenData, to_id_str
-from poke_env.environment.effect import Effect
-from poke_env.environment.move import SPECIAL_MOVES, Move
-from poke_env.environment.pokemon_gender import PokemonGender
-from poke_env.environment.pokemon_type import PokemonType
-from poke_env.environment.status import Status
-from poke_env.environment.z_crystal import Z_CRYSTAL
 from poke_env.stats import compute_raw_stats
 from poke_env.teambuilder.teambuilder_pokemon import TeambuilderPokemon
 
@@ -589,6 +589,8 @@ class Pokemon:
         elif tb.nickname is not None and tb.species is not None:
             self._update_from_pokedex(tb.species)
             self._name = tb.nickname
+        elif tb.nickname is None and tb.species is not None:
+            self._update_from_pokedex(tb.species)
         else:
             raise ValueError(
                 "TeambuilderPokemon must have either a nickname or species", tb

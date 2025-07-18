@@ -523,7 +523,7 @@
             "0": "Sweet Veil",
             "H": "Aroma Veil"
         },
-        "baseForme": "Vanilla Cream",
+        "baseForme": "Vanilla-Cream",
         "baseStats": {
             "atk": 60,
             "def": 75,
@@ -6401,6 +6401,9 @@
         "heightm": 2.5,
         "name": "Chromera",
         "num": -60,
+        "tags": [
+            "Sub-Legendary"
+        ],
         "types": [
             "Dark",
             "Normal"
@@ -10986,6 +10989,7 @@
         "abilities": {
             "0": "Ice Face"
         },
+        "baseForme": "Ice",
         "baseStats": {
             "atk": 80,
             "def": 110,
@@ -12496,10 +12500,10 @@
         ],
         "formeOrder": [
             "Flabe\u0301be\u0301",
-            "Flabe\u0301be\u0301-Blue",
+            "Flabe\u0301be\u0301-Yellow",
             "Flabe\u0301be\u0301-Orange",
-            "Flabe\u0301be\u0301-White",
-            "Flabe\u0301be\u0301-Yellow"
+            "Flabe\u0301be\u0301-Blue",
+            "Flabe\u0301be\u0301-White"
         ],
         "gender": "F",
         "heightm": 0.1,
@@ -12844,10 +12848,10 @@
         ],
         "formeOrder": [
             "Floette",
-            "Floette-Blue",
-            "Floette-Orange",
-            "Floette-White",
             "Floette-Yellow",
+            "Floette-Orange",
+            "Floette-Blue",
+            "Floette-White",
             "Floette-Eternal"
         ],
         "gender": "F",
@@ -12953,10 +12957,10 @@
         "evoType": "useItem",
         "formeOrder": [
             "Florges",
-            "Florges-Blue",
+            "Florges-Yellow",
             "Florges-Orange",
-            "Florges-White",
-            "Florges-Yellow"
+            "Florges-Blue",
+            "Florges-White"
         ],
         "gender": "F",
         "heightm": 1.1,
@@ -24364,6 +24368,7 @@
         "abilities": {
             "0": "Hunger Switch"
         },
+        "baseForme": "Full-Belly",
         "baseStats": {
             "atk": 95,
             "def": 58,
@@ -25967,7 +25972,6 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Grass",
         "formeOrder": [
             "Ogerpon",
             "Ogerpon-Wellspring",
@@ -25991,6 +25995,7 @@
             "Ogerpon-Hearthflame-Tera",
             "Ogerpon-Cornerstone-Tera"
         ],
+        "requiredTeraType": "Grass",
         "tags": [
             "Sub-Legendary"
         ],
@@ -26017,13 +26022,13 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Rock",
         "forme": "Cornerstone",
         "gender": "F",
         "heightm": 1.2,
         "name": "Ogerpon-Cornerstone",
         "num": 1017,
         "requiredItem": "Cornerstone Mask",
+        "requiredTeraType": "Rock",
         "types": [
             "Grass",
             "Rock"
@@ -26048,13 +26053,13 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Rock",
         "forme": "Cornerstone-Tera",
         "gender": "F",
         "heightm": 1.2,
         "name": "Ogerpon-Cornerstone-Tera",
         "num": 1017,
         "requiredItem": "Cornerstone Mask",
+        "requiredTeraType": "Rock",
         "types": [
             "Grass",
             "Rock"
@@ -26079,13 +26084,13 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Fire",
         "forme": "Hearthflame",
         "gender": "F",
         "heightm": 1.2,
         "name": "Ogerpon-Hearthflame",
         "num": 1017,
         "requiredItem": "Hearthflame Mask",
+        "requiredTeraType": "Fire",
         "types": [
             "Grass",
             "Fire"
@@ -26110,13 +26115,13 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Fire",
         "forme": "Hearthflame-Tera",
         "gender": "F",
         "heightm": 1.2,
         "name": "Ogerpon-Hearthflame-Tera",
         "num": 1017,
         "requiredItem": "Hearthflame Mask",
+        "requiredTeraType": "Fire",
         "types": [
             "Grass",
             "Fire"
@@ -26141,12 +26146,12 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Grass",
         "forme": "Teal-Tera",
         "gender": "F",
         "heightm": 1.2,
         "name": "Ogerpon-Teal-Tera",
         "num": 1017,
+        "requiredTeraType": "Grass",
         "types": [
             "Grass"
         ],
@@ -26170,13 +26175,13 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Water",
         "forme": "Wellspring",
         "gender": "F",
         "heightm": 1.2,
         "name": "Ogerpon-Wellspring",
         "num": 1017,
         "requiredItem": "Wellspring Mask",
+        "requiredTeraType": "Water",
         "types": [
             "Grass",
             "Water"
@@ -26201,13 +26206,13 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Water",
         "forme": "Wellspring-Tera",
         "gender": "F",
         "heightm": 1.2,
         "name": "Ogerpon-Wellspring-Tera",
         "num": 1017,
         "requiredItem": "Wellspring Mask",
+        "requiredTeraType": "Water",
         "types": [
             "Grass",
             "Water"
@@ -30777,6 +30782,75 @@
         ],
         "weightkg": 6.6
     },
+    "ramnarok": {
+        "abilities": {
+            "0": "No Guard"
+        },
+        "baseForme": "Dormant",
+        "baseStats": {
+            "atk": 63,
+            "def": 104,
+            "hp": 110,
+            "spa": 104,
+            "spd": 134,
+            "spe": 85
+        },
+        "color": "Red",
+        "eggGroups": [
+            "Undiscovered"
+        ],
+        "formeOrder": [
+            "Ramnarok",
+            "Ramnarok-Radiant"
+        ],
+        "gen": 9,
+        "gender": "N",
+        "heightm": 2.2,
+        "name": "Ramnarok",
+        "num": -78,
+        "otherFormes": [
+            "Ramnarok-Radiant"
+        ],
+        "tags": [
+            "Mythical"
+        ],
+        "types": [
+            "Fire",
+            "Steel"
+        ],
+        "weightkg": 250
+    },
+    "ramnarokradiant": {
+        "abilities": {
+            "0": "No Guard"
+        },
+        "baseSpecies": "Ramnarok",
+        "baseStats": {
+            "atk": 63,
+            "def": 85,
+            "hp": 110,
+            "spa": 134,
+            "spd": 54,
+            "spe": 154
+        },
+        "battleOnly": "Ramnarok",
+        "color": "White",
+        "eggGroups": [
+            "Undiscovered"
+        ],
+        "forme": "Radiant",
+        "gen": 9,
+        "gender": "N",
+        "heightm": 2.2,
+        "name": "Ramnarok-Radiant",
+        "num": -78,
+        "requiredMove": "Polar Flare",
+        "types": [
+            "Fire",
+            "Ice"
+        ],
+        "weightkg": 182
+    },
     "rampardos": {
         "abilities": {
             "0": "Mold Breaker",
@@ -34425,6 +34499,7 @@
         "abilities": {
             "0": "RKS System"
         },
+        "baseForme": "Normal",
         "baseStats": {
             "atk": 95,
             "def": 95,
@@ -38965,7 +39040,6 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Stellar",
         "formeOrder": [
             "Terapagos",
             "Terapagos-Terastal",
@@ -38978,6 +39052,7 @@
             "Terapagos-Terastal",
             "Terapagos-Stellar"
         ],
+        "requiredTeraType": "Stellar",
         "tags": [
             "Restricted Legendary"
         ],
@@ -39004,11 +39079,11 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Stellar",
         "forme": "Stellar",
         "heightm": 1.7,
         "name": "Terapagos-Stellar",
         "num": 1024,
+        "requiredTeraType": "Stellar",
         "types": [
             "Normal"
         ],
@@ -39032,11 +39107,11 @@
         "eggGroups": [
             "Undiscovered"
         ],
-        "forceTeraType": "Stellar",
         "forme": "Terastal",
         "heightm": 0.3,
         "name": "Terapagos-Terastal",
         "num": 1024,
+        "requiredTeraType": "Stellar",
         "types": [
             "Normal"
         ],

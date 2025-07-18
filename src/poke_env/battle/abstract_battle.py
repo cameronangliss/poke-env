@@ -4,16 +4,16 @@ from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
+from poke_env.battle.effect import Effect
+from poke_env.battle.field import Field
+from poke_env.battle.observation import Observation
+from poke_env.battle.observed_pokemon import ObservedPokemon
+from poke_env.battle.pokemon import Pokemon
+from poke_env.battle.pokemon_type import PokemonType
+from poke_env.battle.side_condition import STACKABLE_CONDITIONS, SideCondition
+from poke_env.battle.weather import Weather
 from poke_env.data import GenData, to_id_str
 from poke_env.data.replay_template import REPLAY_TEMPLATE
-from poke_env.environment.effect import Effect
-from poke_env.environment.field import Field
-from poke_env.environment.observation import Observation
-from poke_env.environment.observed_pokemon import ObservedPokemon
-from poke_env.environment.pokemon import Pokemon
-from poke_env.environment.pokemon_type import PokemonType
-from poke_env.environment.side_condition import STACKABLE_CONDITIONS, SideCondition
-from poke_env.environment.weather import Weather
 
 
 class AbstractBattle(ABC):
@@ -91,14 +91,14 @@ class AbstractBattle(ABC):
         "_max_team_size",
         "_maybe_trapped",
         "_observations",
-        "_opponent_can_dynamax",
-        "_opponent_can_mega_evolve",
-        "_opponent_can_terrastallize",
-        "_opponent_can_z_move",
         "_opponent_dynamax_turn",
         "_opponent_rating",
         "_opponent_side_conditions",
         "_opponent_team",
+        "_opponent_used_dynamax",
+        "_opponent_used_mega_evolve",
+        "_opponent_used_tera",
+        "_opponent_used_z_move",
         "_opponent_username",
         "_player_role",
         "_player_username",
@@ -117,6 +117,10 @@ class AbstractBattle(ABC):
         "_teampreview",
         "_trapped",
         "_turn",
+        "_used_dynamax",
+        "_used_mega_evolve",
+        "_used_tera",
+        "_used_z_move",
         "_wait",
         "_weather",
         "_won",
@@ -163,10 +167,6 @@ class AbstractBattle(ABC):
         self._last_request: Dict[str, Any] = {}
         self.rules: List[str] = []
         self._turn: int = 0
-        self._opponent_can_terrastallize: bool = True
-        self._opponent_can_mega_evolve: Union[bool, List[bool]] = True
-        self._opponent_can_z_move: Union[bool, List[bool]] = True
-
         self._opponent_dynamax_turn: Optional[int] = None
         self._opponent_rating: Optional[int] = None
         self._rating: Optional[int] = None
@@ -178,6 +178,14 @@ class AbstractBattle(ABC):
         self._opponent_side_conditions: Dict[SideCondition, int] = {}  # set()
         self._side_conditions: Dict[SideCondition, int] = {}  # set()
         self._reviving: bool = False
+        self._opponent_used_mega_evolve = False
+        self._opponent_used_z_move = False
+        self._opponent_used_dynamax = False
+        self._opponent_used_tera = False
+        self._used_mega_evolve = False
+        self._used_z_move = False
+        self._used_dynamax = False
+        self._used_tera = False
 
         # Pokemon attributes
         self._team: Dict[str, Pokemon] = {}
@@ -226,20 +234,17 @@ class AbstractBattle(ABC):
         name = identifier[3:].strip()
         team = (
             self._team
-            if force_self_team or player_role == self.player_role
+            if player_role == self.player_role or force_self_team
             else self._opponent_team
         )
 
         # if the pokemon has a nickname, this ensures we recognize it
-        split_details = [
-            to_id_str(detail) for detail in re.split(r"[^a-zA-Z0-9]+", details)
-        ]
+        name_det = details.split(", ")[0]
         matches = [
-            i for i, p in enumerate(team.values()) if p.base_species in split_details
-        ] or [
             i
             for i, p in enumerate(team.values())
-            if p.base_species in to_id_str(details)
+            if p.base_species == to_id_str(name_det)
+            or p.base_species in [to_id_str(det) for det in name_det.split("-")]
         ]
         assert len(matches) < 2
         if identifier not in team and matches:
@@ -247,13 +252,13 @@ class AbstractBattle(ABC):
             items = list(team.items())
             items[i] = (identifier, items[i][1])
             items[i][1]._name = identifier[4:]
-            if player_role == self._player_role or force_self_team:
+            if player_role == self.player_role or force_self_team:
                 self._team = dict(items)
             else:
                 self._opponent_team = dict(items)
         team = (
             self._team
-            if player_role == self._player_role or force_self_team
+            if player_role == self.player_role or force_self_team
             else self._opponent_team
         )
         if identifier in team:
@@ -688,15 +693,15 @@ class AbstractBattle(ABC):
                 pokemon.start_effect(effect)  # type: ignore
 
             if pokemon.is_dynamaxed:  # type: ignore
-                if pokemon in set(self.team.values()) and self._dynamax_turn is None:
+                if pokemon in self.team.values() and self._dynamax_turn is None:
                     self._dynamax_turn = self.turn
-                # self._can_dynamax value is set via _parse_request()
+                    self._used_dynamax = True
                 elif (
-                    pokemon in set(self.opponent_team.values())
+                    pokemon in self.opponent_team.values()
                     and self._opponent_dynamax_turn is None
                 ):
                     self._opponent_dynamax_turn = self.turn
-                    self.opponent_can_dynamax = False
+                    self._opponent_used_dynamax = True
         elif event[1] == "-activate":
             target, effect = event[2:4]
             if target and effect == "move: Skill Swap":
@@ -803,10 +808,11 @@ class AbstractBattle(ABC):
                 pokemon, item = event[2:4]
                 self.get_pokemon(pokemon).item = to_id_str(item)
         elif event[1] == "-mega":
-            if self.player_role is not None and not event[2].startswith(
-                self.player_role
-            ):
-                self._opponent_can_mega_evolve = False
+            assert self.player_role is not None
+            if event[2].startswith(self.player_role):
+                self._used_mega_evolve = True
+            else:
+                self._opponent_used_mega_evolve = True
             pokemon, megastone = event[2:4]
             self.get_pokemon(pokemon).mega_evolve(megastone)
         elif event[1] == "-mustrecharge":
@@ -857,11 +863,11 @@ class AbstractBattle(ABC):
             pokemon, into = event[2:4]
             self.get_pokemon(pokemon).transform(self.get_pokemon(into))
         elif event[1] == "-zpower":
-            if self._player_role is not None and not event[2].startswith(
-                self._player_role
-            ):
-                self._opponent_can_z_move = False
-
+            assert self.player_role is not None
+            if event[2].startswith(self.player_role):
+                self._used_z_move = True
+            else:
+                self._opponent_used_z_move = True
             pokemon = event[2]
             self.get_pokemon(pokemon).used_z_move()
         elif event[1] == "clearpoke":
@@ -978,8 +984,10 @@ class AbstractBattle(ABC):
             pokemon.terastallize(type_)  # type: ignore
 
             if pokemon.is_terastallized:  # type: ignore
-                if pokemon in set(self.opponent_team.values()):
-                    self._opponent_can_terrastallize = False
+                if pokemon in self.team.values():
+                    self._used_tera = True
+                elif pokemon in self.opponent_team.values():
+                    self._opponent_used_tera = True
         else:
             raise NotImplementedError(event)
 
@@ -1091,12 +1099,12 @@ class AbstractBattle(ABC):
 
     @property
     @abstractmethod
-    def can_z_move(self) -> Any:
+    def can_tera(self) -> Any:
         pass
 
     @property
     @abstractmethod
-    def can_tera(self) -> Any:
+    def can_z_move(self) -> Any:
         pass
 
     @property
@@ -1214,16 +1222,6 @@ class AbstractBattle(ABC):
         pass
 
     @property
-    @abstractmethod
-    def opponent_can_dynamax(self) -> Any:
-        pass
-
-    @opponent_can_dynamax.setter
-    @abstractmethod
-    def opponent_can_dynamax(self, value: bool) -> Any:
-        pass
-
-    @property
     def opponent_dynamax_turns_left(self) -> Optional[int]:
         """
         :return: How many turns of dynamax are left for the opponent's pokemon.
@@ -1275,6 +1273,38 @@ class AbstractBattle(ABC):
             return {mon.species: mon for mon in self._teampreview_opponent_team}
 
     @property
+    def opponent_used_dynamax(self) -> bool:
+        """
+        :return: Whether or not opponent's current active pokemon can dynamax
+        :rtype: bool
+        """
+        return self._opponent_used_dynamax
+
+    @property
+    def opponent_used_mega_evolve(self) -> bool:
+        """
+        :return: Whether or not opponent's current active pokemon can mega-evolve
+        :rtype: bool
+        """
+        return self._opponent_used_mega_evolve
+
+    @property
+    def opponent_used_tera(self) -> bool:
+        """
+        :return: Whether or not opponent's current active pokemon can terastallize
+        :rtype: bool
+        """
+        return self._opponent_used_tera
+
+    @property
+    def opponent_used_z_move(self) -> bool:
+        """
+        :return: Whether or not opponent's current active pokemon can z-move
+        :rtype: bool
+        """
+        return self._opponent_used_z_move
+
+    @property
     def opponent_username(self) -> Optional[str]:
         """
         :return: The opponent's username, or None if unknown.
@@ -1320,12 +1350,11 @@ class AbstractBattle(ABC):
 
     @players.setter
     def players(self, players: Tuple[str, str]):
-        """Sets the battle player's name:
+        """Set the players' usernames.
 
-        :param player_1: First player's username.
-        :type player_1: str
-        :param player_1: Second player's username.
-        :type player_2: str
+        :param players: Tuple containing the player's username and the
+            opponent's username.
+        :type players: Tuple[str, str]
         """
         player_1, player_2 = players
         if player_1 != self._player_username:
@@ -1444,6 +1473,43 @@ class AbstractBattle(ABC):
         :type turn: int
         """
         self._turn = turn
+
+    @property
+    def used_dynamax(self) -> bool:
+        """
+        :return: Whether or not the current active pokemon can dynamax
+        :rtype: bool
+        """
+        return self._used_dynamax
+
+    @property
+    def used_mega_evolve(self) -> bool:
+        """
+        :return: Whether or not the current active pokemon can mega evolve.
+        :rtype: bool
+        """
+        return self._used_mega_evolve
+
+    @property
+    def used_tera(self) -> bool:
+        """
+        :return: Whether or not the current active pokemon can terastallize
+        :rtype: bool
+        """
+        return self._used_tera
+
+    @property
+    def used_z_move(self) -> bool:
+        """
+        :return: Whether or not the current active pokemon can z-move.
+        :rtype: bool
+        """
+        return self._used_z_move
+
+    @property
+    @abstractmethod
+    def valid_orders(self) -> Any:
+        pass
 
     @property
     def weather(self) -> Dict[Weather, int]:

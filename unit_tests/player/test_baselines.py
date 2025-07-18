@@ -1,48 +1,33 @@
 from collections import namedtuple
 
-from poke_env.environment import Move, Pokemon
+from poke_env.battle import Battle, DoubleBattle, Move, Pokemon
 from poke_env.player import MaxBasePowerPlayer, RandomPlayer, SimpleHeuristicsPlayer
 
 
 def test_max_base_power_player():
-    from poke_env.environment import Battle
-    from poke_env.player import player as player_pkg
-
     player = MaxBasePowerPlayer(start_listening=False)
 
-    PseudoBattle = namedtuple(
-        "PseudoBattle",
-        (
-            "available_moves",
-            "available_switches",
-            "can_z_move",
-            "can_dynamax",
-            "can_tera",
-            "can_mega_evolve",
-            "gen",
-        ),
-    )
-    battle = PseudoBattle([], [], False, False, False, False, 8)
-
-    player_pkg.Battle = PseudoBattle
+    battle = Battle("test_battle", "test_player", None, 8)
+    battle._available_moves = []
+    battle._available_switches = []
+    battle._can_z_move = False
+    battle._can_dynamax = False
+    battle._can_tera = False
+    battle._can_mega_evolve = False
 
     assert player.choose_move(battle).message == "/choose default"
 
-    battle.available_switches.append(Pokemon(species="ponyta", gen=8))
+    battle._available_switches.append(Pokemon(species="ponyta", gen=8))
     assert player.choose_move(battle).message == "/choose switch ponyta"
 
-    battle.available_moves.append(Move("protect", gen=8))
+    battle._available_moves.append(Move("protect", gen=8))
     assert player.choose_move(battle).message == "/choose move protect"
 
-    battle.available_moves.append(Move("quickattack", gen=8))
+    battle._available_moves.append(Move("quickattack", gen=8))
     assert player.choose_move(battle).message == "/choose move quickattack"
 
-    battle.available_moves.append(Move("flamethrower", gen=8))
+    battle._available_moves.append(Move("flamethrower", gen=8))
     assert player.choose_move(battle).message == "/choose move flamethrower"
-
-    player_pkg.Battle = (
-        Battle  # this is in case a test runner shares memory between tests
-    )
 
 
 def test_simple_heuristics_player_estimate_matchup():
@@ -114,6 +99,26 @@ def test_simple_heuristics_player_should_dynamax():
     battle.opponent_active_pokemon.set_hp("100/100")
 
     assert player._should_dynamax(battle, 4) is True
+
+
+def test_simple_heuristics_player_should_terastallize():
+    player = SimpleHeuristicsPlayer(start_listening=False)
+
+    active = Pokemon(species="charizard", gen=9)
+    opponent = Pokemon(species="venusaur", gen=9)
+    move = Move("flamethrower", gen=9)
+    active._terastallized_type = move.type
+    active.set_hp("100/100")
+    opponent.set_hp("100/100")
+
+    battle = namedtuple(
+        "PseudoBattle", ["active_pokemon", "opponent_active_pokemon", "can_tera"]
+    )(active, opponent, True)
+
+    assert player._should_terastallize(battle, move, 2) is True
+
+    battle = battle._replace(can_tera=False)
+    assert player._should_terastallize(battle, move, 2) is False
 
 
 def test_simple_heuristics_player_should_switch_out():
@@ -221,47 +226,76 @@ def test_simple_heuristics_player():
     assert player.choose_move(battle).message == "/choose switch sneasel"
 
 
-def test_random_player():
-    from poke_env.environment import Battle
-    from poke_env.player import player as player_pkg
+def test_simple_heuristics_player_in_doubles():
+    player = SimpleHeuristicsPlayer(start_listening=False)
+    battle = DoubleBattle("battletag", "username", None, gen=9)
+    battle._player_role = "p1"
 
+    # Patch team
+    mon1 = Pokemon(9, species="charizard")
+    mon1._active = True
+    mon2 = Pokemon(9, species="pikachu")
+    mon2._active = True
+    opp1 = Pokemon(9, species="venusaur")
+    opp1._active = True
+    opp2 = Pokemon(9, species="blastoise")
+    opp2._active = True
+
+    battle._team = {mon1.name: mon1, mon2.name: mon2}
+    battle._opponent_team = {opp1.name: opp1, opp2.name: opp2}
+    battle._active_pokemon = {"p1a": mon1, "p1b": mon2}
+    battle._opponent_active_pokemon = {"p2a": opp1, "p2b": opp2}
+    battle._available_moves = [
+        [Move("flamethrower", gen=9)],
+        [Move("thunderbolt", gen=9)],
+    ]
+    battle._available_switches = [[], []]
+
+    assert (
+        player.choose_move(battle).message
+        == "/choose move flamethrower 1, move thunderbolt 2"
+    )
+
+    battle._opponent_active_pokemon = {"p2a": opp2, "p2b": opp1}
+    assert (
+        player.choose_move(battle).message
+        == "/choose move flamethrower 2, move thunderbolt 1"
+    )
+
+
+def test_random_player():
     player = RandomPlayer(start_listening=False)
 
-    PseudoBattle = namedtuple(
-        "PseudoBattle",
-        (
-            "available_moves",
-            "available_switches",
-            "can_z_move",
-            "can_dynamax",
-            "can_tera",
-            "can_mega_evolve",
-            "gen",
-        ),
-    )
-    battle = PseudoBattle([], [], False, False, False, False, 8)
-
-    player_pkg.Battle = PseudoBattle
+    battle = Battle("test_battle", "test_player", None, 8)
+    battle._available_moves = []
+    battle._available_switches = []
+    battle._can_z_move = False
+    battle._can_dynamax = False
+    battle._can_tera = False
+    battle._can_mega_evolve = False
 
     assert player.choose_move(battle).message == "/choose default"
 
-    battle.available_switches.append(Pokemon(species="ponyta", gen=8))
+    mon = Pokemon(species="charizard", gen=8)
+    mon._active = True
+    battle._team = {"charizard": mon}
+    battle._available_switches.append(Pokemon(species="ponyta", gen=8))
     assert player.choose_move(battle).message == "/choose switch ponyta"
 
-    battle.available_moves.append(Move("protect", gen=8))
+    battle._available_moves.append(Move("protect", gen=8))
     assert player.choose_move(battle).message in {
         "/choose move protect",
         "/choose switch ponyta",
     }
 
-    battle.available_moves.append(Move("quickattack", gen=8))
+    battle._available_moves.append(Move("quickattack", gen=8))
     assert player.choose_move(battle).message in {
         "/choose move protect",
         "/choose switch ponyta",
         "/choose move quickattack",
     }
 
-    battle.available_moves.append(Move("flamethrower", gen=8))
+    battle._available_moves.append(Move("flamethrower", gen=8))
     assert player.choose_move(battle).message in {
         "/choose move protect",
         "/choose switch ponyta",
@@ -275,7 +309,3 @@ def test_random_player():
         "/choose move quickattack",
         "/choose move flamethrower",
     }
-
-    player_pkg.Battle = (
-        Battle  # this is in case a test runner shares memory between tests
-    )

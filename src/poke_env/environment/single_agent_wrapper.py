@@ -2,9 +2,9 @@ from typing import Any, Awaitable, Dict, Optional, Tuple
 
 from gymnasium import Env
 
+from poke_env.battle.double_battle import DoubleBattle
+from poke_env.environment.env import ActionType, ObsType, PokeEnv, _EnvPlayer
 from poke_env.player.battle_order import BattleOrder
-from poke_env.player.doubles_env import DoubleBattle
-from poke_env.player.env import ActionType, ObsType, PokeEnv, _EnvPlayer
 from poke_env.player.player import Player
 
 
