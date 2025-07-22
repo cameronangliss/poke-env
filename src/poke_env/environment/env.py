@@ -23,7 +23,6 @@ from poke_env.battle.pokemon import Pokemon
 from poke_env.concurrency import create_in_poke_loop
 from poke_env.player.battle_order import (
     BattleOrder,
-    DefaultBattleOrder,
     DoubleBattleOrder,
     ForfeitBattleOrder,
     _EmptyBattleOrder,
@@ -113,11 +112,11 @@ class _EnvPlayer(Player):
             return self.random_teampreview(battle)
         elif isinstance(battle, DoubleBattle):
             order1 = await self._env_move(battle)
-            if isinstance(order1, (DefaultBattleOrder, ForfeitBattleOrder)):
+            if isinstance(order1, (ForfeitBattleOrder, _EmptyBattleOrder)):
                 return order1.message
             upd_battle = self._simulate_teampreview_switchin(order1, battle)
             order2 = await self._env_move(upd_battle)
-            if isinstance(order2, (DefaultBattleOrder, ForfeitBattleOrder)):
+            if isinstance(order2, (ForfeitBattleOrder, _EmptyBattleOrder)):
                 return order1.message
             action1 = self.order_to_action(order1, battle)  # type: ignore
             action2 = self.order_to_action(order2, upd_battle)  # type: ignore
