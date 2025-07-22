@@ -423,10 +423,8 @@ class Player(ABC):
             choice = self.choose_move(battle)
             if isinstance(choice, Awaitable):
                 choice = await choice
-            if isinstance(choice, _EmptyBattleOrder):
-                return
             message = choice.message
-        if hasattr(self.ps_client, "websocket"):
+        if message:
             await self.ps_client.send_message(message, battle.battle_tag)
 
     async def _handle_challenge_request(self, split_message: List[str]):
