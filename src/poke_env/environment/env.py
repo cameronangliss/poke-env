@@ -196,7 +196,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         open_timeout: Optional[float] = 10.0,
         ping_interval: Optional[float] = 20.0,
         ping_timeout: Optional[float] = 20.0,
-        challenge_timeout: Optional[int] = 60,
+        challenge_timeout: Optional[float] = 60.0,
         team: Optional[Union[str, Teambuilder]] = None,
         fake: bool = False,
         strict: bool = True,
@@ -241,6 +241,9 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             (important for backend websockets.
             Increase only if timeouts occur during runtime).
             If None pings will never time out.
+        :type challenge_timeout: float, optional
+        :param challenge_timeout: How long to wait for agents to challenge.
+            If None agent challenging will never time out.
         :type ping_timeout: float, optional
         :param team: The team to use for formats requiring a team. Can be a showdown
             team string, a showdown packed team string, of a ShowdownTeam object.
@@ -478,7 +481,10 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self._challenge_task = asyncio.run_coroutine_threadsafe(
             self.agent1.battle_against(self.agent2, n_battles=1), self._loop
         )
-        self.battle1 = self.agent1.battle_queue.get(timeout=self._challenge_timeout)
+        try:
+            self.battle1 = self.agent1.battle_queue.get(timeout=self._challenge_timeout)
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError("Agent is not challenging")
         self.battle2 = self.agent2.battle_queue.get()
         self.agent1_to_move = True
         self.agent2_to_move = True
