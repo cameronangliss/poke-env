@@ -481,7 +481,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                 asyncio.wait_for(
                     self.agent1._battle_start_condition.wait(), self._challenge_timeout
                 ),
-                POKE_LOOP,
+                self._loop,
             )
         except TimeoutError:
             raise TimeoutError("Agent is not challenging")
