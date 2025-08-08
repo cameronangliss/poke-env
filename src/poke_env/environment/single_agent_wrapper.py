@@ -72,11 +72,5 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
     def close(self):
         self.env.close()
 
-    def get_opp_win_rate(self) -> float:
-        return self.env.get_opp_win_rate()  # type: ignore
-
-    def cleanup(self):
-        self.env.cleanup()  # type: ignore
-
     def set_opp_policy(self, policy):
         self.opponent.set_policy(policy)  # type: ignore
