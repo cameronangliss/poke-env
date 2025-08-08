@@ -95,6 +95,7 @@ def test_reset_step_close():
         strict=False,
     )
     env.agent1.battle_against = AsyncMock(return_value=None)
+    env.agent1._battle_start_condition.wait = AsyncMock(return_value=None)
     # --- Part 1: Test reset() ---
     # Pre-populate each agent's battle_queue with a new battle.
     battle_new1 = Battle("new_battle1", env.agent1.username, env.agent1.logger, gen=8)
