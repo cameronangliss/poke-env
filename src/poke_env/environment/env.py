@@ -483,8 +483,8 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
                 ),
                 self._loop,
             )
-        except TimeoutError:
-            raise TimeoutError("Agent is not challenging")
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError("Agent is not challenging")
         self.battle1 = self.agent1.battle_queue.get()
         self.battle2 = self.agent2.battle_queue.get()
         self.agent1_to_move = True
