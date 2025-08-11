@@ -187,7 +187,7 @@ class SimpleHeuristicsPlayer(Player):
             or active.tera_type is None
         ):
             return False
-        offensive_score = opp_active.damage_multiplier(move.type)
+        offensive_tera_score = opp_active.damage_multiplier(move.type)
         defensive_score = min(
             [1 / (active.damage_multiplier(t) or 1 / 8) for t in opp_active.types]
         )
@@ -203,7 +203,7 @@ class SimpleHeuristicsPlayer(Player):
                 for t in opp_active.types
             ]
         )
-        return offensive_score * (defensive_tera_score / defensive_score) > 1
+        return offensive_tera_score * (defensive_tera_score / defensive_score) > 1
 
     def _should_switch_out(self, battle: AbstractBattle):
         active = battle.active_pokemon
@@ -242,7 +242,7 @@ class SimpleHeuristicsPlayer(Player):
             boost = 2 / (2 - mon.boosts[stat])
         return ((2 * mon.base_stats[stat] + 31) + 5) * boost
 
-    def choose_move_in_1v1(self, battle: Battle) -> Tuple[SingleBattleOrder, float]:
+    def choose_singles_move(self, battle: Battle) -> Tuple[SingleBattleOrder, float]:
         # Main mons shortcuts
         active = battle.active_pokemon
         opponent = battle.opponent_active_pokemon
@@ -368,7 +368,7 @@ class SimpleHeuristicsPlayer(Player):
 
     def choose_move(self, battle: AbstractBattle):
         if not isinstance(battle, DoubleBattle):
-            return self.choose_move_in_1v1(battle)[0]  # type: ignore
+            return self.choose_singles_move(battle)[0]  # type: ignore
         orders: List[SingleBattleOrder] = []
         for active_id in [0, 1]:
             if (
@@ -378,7 +378,7 @@ class SimpleHeuristicsPlayer(Player):
                 orders += [PassBattleOrder()]
                 continue
             results = [
-                self.choose_move_in_1v1(PseudoBattle(battle, active_id, opp_id))
+                self.choose_singles_move(PseudoBattle(battle, active_id, opp_id))
                 for opp_id in [0, 1]
             ]
             possible_orders = [r[0] for r in results]
