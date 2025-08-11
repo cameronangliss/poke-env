@@ -78,6 +78,7 @@ class Move:
         "_current_pp",
         "_dynamaxed_move",
         "_gen",
+        "_is_last_used",
         "_request_target",
     )
 
@@ -97,6 +98,7 @@ class Move:
                     pass
 
         self._current_pp = self.max_pp
+        self._is_last_used: bool = False
 
         self._dynamaxed_move = None
         self._request_target = None
@@ -409,6 +411,10 @@ class Move:
                     for t in self.entry["ignoreImmunity"].keys()
                 }
         return False
+
+    @property
+    def is_last_used(self) -> bool:
+        return self._is_last_used
 
     @property
     def is_protect_counter(self) -> bool:
