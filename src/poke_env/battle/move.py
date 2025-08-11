@@ -78,7 +78,7 @@ class Move:
         "_current_pp",
         "_dynamaxed_move",
         "_gen",
-        "_is_last_used"
+        "_is_last_used",
         "_request_target",
     )
 
