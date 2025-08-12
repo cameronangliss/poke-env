@@ -437,6 +437,8 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             self.agent2._waiting.clear()
             self.agent1._trying_again.clear()
             battle2 = self.battle2
+        self.battle1 = battle1
+        self.battle2 = battle2
         observations = {
             self.agents[0]: self.embed_battle(battle1),
             self.agents[1]: self.embed_battle(battle2),
