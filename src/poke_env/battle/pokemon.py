@@ -155,12 +155,12 @@ class Pokemon:
         if not Move.should_be_stored(id_, self.gen):
             return None
 
+        move = Move(move_id=id_, raw_id=move_id, gen=self.gen)
         if id_ not in self._moves and use:
-            move = Move(move_id=id_, raw_id=move_id, gen=self.gen)
             self._moves[id_] = move
             self._moves[id_].use()
 
-        return self._moves[id_]
+        return move
 
     def boost(self, stat: str, amount: int):
         self._boosts[stat] += amount
