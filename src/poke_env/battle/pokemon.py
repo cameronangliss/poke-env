@@ -337,7 +337,7 @@ class Pokemon:
 
         id_ = Move.retrieve_id(move_id)
         if id_ not in self.moves:
-            self._moves[id_] = Move(id_, gen=self._data.gen, raw_id=move_id)
+            self._moves[id_] = Move(id_, gen=self.gen, raw_id=move_id)
         move = self.moves[id_]
 
         self._preparing_move = move
@@ -557,7 +557,7 @@ class Pokemon:
 
         for move in request_pokemon["moves"]:
             id_ = Move.retrieve_id(move)
-            self._moves[id_] = Move(move_id=id_, gen=self._data.gen, raw_id=move)
+            self._moves[id_] = Move(move_id=id_, gen=self.gen, raw_id=move)
 
         if len(self._moves) > 4:
             moves_to_keep = {
