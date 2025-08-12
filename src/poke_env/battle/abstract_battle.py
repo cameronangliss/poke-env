@@ -462,7 +462,6 @@ class AbstractBattle(ABC):
         elif event[1] == "move":
             failed = False
             override_move = None
-            reveal_other_move = False
 
             for move_failed_suffix in ["[miss]", "[still]", "[notarget]"]:
                 if event[-1] == move_failed_suffix:
@@ -489,11 +488,13 @@ class AbstractBattle(ABC):
 
             if event[-1].startswith(("[from] move: ", "[from]move: ")):
                 override_move = event.pop().split(": ")[-1]
-
-                if override_move == "Sleep Talk":
-                    # Sleep talk was used, but also reveals another move
-                    reveal_other_move = True
-                elif override_move in {"Copycat", "Metronome", "Nature Power", "Round"}:
+                if override_move in {
+                    "Sleep Talk",
+                    "Copycat",
+                    "Metronome",
+                    "Nature Power",
+                    "Round",
+                }:
                     pass
                 elif override_move in {"Grass Pledge", "Water Pledge", "Fire Pledge"}:
                     override_move = None
@@ -584,9 +585,9 @@ class AbstractBattle(ABC):
                 # Moves that can trigger this branch results in two `move` messages being sent.
                 # We're setting use=False in the one (with the override) in order to prevent two pps from being used
                 # incorrectly.
-                self.get_pokemon(pokemon).moved(override_move, failed=failed, use=False)
-            if override_move is None or reveal_other_move:
                 self.get_pokemon(pokemon).moved(move, failed=failed, use=False)
+            else:
+                self.get_pokemon(pokemon).moved(move, failed=failed)
         elif event[1] == "cant":
             pokemon, _ = event[2:4]
             self.get_pokemon(pokemon).cant_move()
