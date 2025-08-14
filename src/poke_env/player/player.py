@@ -70,6 +70,7 @@ class Player(ABC):
         ping_timeout: Optional[float] = 20.0,
         loop: asyncio.AbstractEventLoop = POKE_LOOP,
         team: Optional[Union[str, Teambuilder]] = None,
+        strict_battle_tracking: bool = False,
     ):
         """
         :param account_configuration: Player configuration. If empty, defaults to an
@@ -155,6 +156,7 @@ class Player(ABC):
         self._waiting: Event = create_in_poke_loop(Event, loop)
         self._trying_again: Event = create_in_poke_loop(Event, loop)
         self._team: Optional[Teambuilder] = None
+        self._strict_battle_tracking = strict_battle_tracking
 
         if isinstance(team, Teambuilder):
             self._team = team
@@ -294,7 +296,7 @@ class Player(ABC):
                     if "teamPreview" in request and request["teamPreview"]:
                         for p in request["side"]["pokemon"]:
                             p["active"] = False
-                    battle.parse_request(request)
+                    battle.parse_request(request, self._strict_battle_tracking)
                     if battle._wait:
                         self._waiting.set()
                     elif not (battle.teampreview and self.accept_open_team_sheet):
@@ -313,7 +315,10 @@ class Player(ABC):
                     teambuilder_mon = [
                         m
                         for m in teambuilder_team
-                        if preview_mon.base_species in to_id_str(m.nickname)
+                        if m.nickname is not None
+                        if preview_mon.base_species == to_id_str(m.nickname)
+                        or preview_mon.base_species
+                        in [to_id_str(substr) for substr in m.nickname.split("-")]
                     ][0]
                     mon = battle.get_pokemon(
                         f"{role}: {teambuilder_mon.nickname}",
