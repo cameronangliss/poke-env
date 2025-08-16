@@ -2,7 +2,9 @@ from typing import Any, Awaitable, Dict, Optional, Tuple
 
 from gymnasium import Env
 
-from poke_env.environment.env import ActionType, ObsType, PokeEnv
+from poke_env.battle.double_battle import DoubleBattle
+from poke_env.environment.env import ActionType, ObsType, PokeEnv, _EnvPlayer
+from poke_env.player.battle_order import BattleOrder
 from poke_env.player.player import Player
 
 
@@ -12,15 +14,31 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         self.opponent = opponent
         self.observation_space = list(env.observation_spaces.values())[0]
         self.action_space = list(env.action_spaces.values())[0]
+        self.first_teampreview_order: Optional[BattleOrder] = None
 
     def step(
         self, action: ActionType
     ) -> Tuple[ObsType, float, bool, bool, Dict[str, Any]]:
-        assert self.env.battle2 is not None
-        opp_order = self.opponent.choose_move(self.env.battle2)
-        assert not isinstance(opp_order, Awaitable)
+        assert self.env.agent2.battle is not None
+        if not self.env.agent2.battle.teampreview:
+            battle = self.env.agent2.battle
+            opp_order = self.opponent.choose_move(battle)
+            assert not isinstance(opp_order, Awaitable)
+        elif self.first_teampreview_order is None:
+            battle = self.env.agent2.battle
+            opp_order = self.opponent.choose_move(battle)
+            assert not isinstance(opp_order, Awaitable)
+            self.first_teampreview_order = opp_order
+        else:
+            assert isinstance(self.env.agent2.battle, DoubleBattle)
+            battle = _EnvPlayer._simulate_teampreview_switchin(
+                self.first_teampreview_order, self.env.agent2.battle
+            )
+            opp_order = self.opponent.choose_move(battle)
+            assert not isinstance(opp_order, Awaitable)
+            self.first_teampreview_order = None
         opp_action = self.env.order_to_action(
-            opp_order, self.env.battle2, fake=self.env._fake, strict=self.env._strict
+            opp_order, battle, fake=self.env._fake, strict=self.env._strict
         )
         actions = {
             self.env.agent1.username: action,
