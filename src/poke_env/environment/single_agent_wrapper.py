@@ -59,10 +59,10 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         seed: Optional[int] = None,
         options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[ObsType, Dict[str, Any]]:
+        self.opponent.reset_battles()
         obs, infos = self.env.reset(seed, options)
         assert self.env.battle2 is not None
-        if not self.env.battle2.teampreview:
-            self.opponent._teampreview_draft = self.env._teampreview_draft2  # type: ignore
+        self.opponent._battles[self.env.battle2.battle_tag] = self.env.battle2
         self._np_random = self.env._np_random
         return obs[self.env.agent1.username], infos[self.env.agent1.username]
 
