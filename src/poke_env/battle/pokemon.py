@@ -25,7 +25,6 @@ class Pokemon:
         "_base_stats",
         "_boosts",
         "_current_hp",
-        "_data",
         "_effects",
         "_gen",
         "_gender",
@@ -156,7 +155,7 @@ class Pokemon:
         if not Move.should_be_stored(id_, self.gen):
             return None
 
-        move = Move(move_id=id_, raw_id=move_id, gen=self._data.gen)
+        move = Move(move_id=id_, raw_id=move_id, gen=self.gen)
         if id_ not in self._moves and use:
             self._moves[id_] = move
             self._moves[id_].use()
@@ -559,7 +558,7 @@ class Pokemon:
 
         for move in request_pokemon["moves"]:
             id_ = Move.retrieve_id(move)
-            self._moves[id_] = Move(move_id=id_, gen=self._data.gen, raw_id=move)
+            self._moves[id_] = Move(move_id=id_, gen=self.gen, raw_id=move)
 
         if len(self._moves) > 4:
             moves_to_keep = {
