@@ -376,6 +376,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             accept_open_team_sheet=self._accept_open_team_sheet,
             start_timer_on_battle_start=self._start_timer_on_battle_start,
             start_listening=self._start_listening,
+            open_timeout=self._open_timeout,
             ping_interval=self._ping_interval,
             ping_timeout=self._ping_timeout,
             loop=self._loop,
