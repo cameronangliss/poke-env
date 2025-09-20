@@ -42,10 +42,7 @@ async def _create_in_poke_loop_async(cls_: Any, *args: Any, **kwargs: Any) -> An
 
 
 def create_in_poke_loop(
-    cls_: Any,
-    loop: asyncio.AbstractEventLoop,
-    *args: Any,
-    **kwargs: Any,
+    cls_: Any, loop: asyncio.AbstractEventLoop, *args: Any, **kwargs: Any
 ) -> Any:
     try:
         current_loop = asyncio.get_running_loop()

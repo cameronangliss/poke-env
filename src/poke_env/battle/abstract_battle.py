@@ -2,7 +2,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from logging import Logger
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from poke_env.battle.effect import Effect
 from poke_env.battle.field import Field
@@ -144,8 +144,8 @@ class AbstractBattle(ABC):
         self._save_replays: Union[str, bool] = save_replays
         self._team_size: Dict[str, int] = {}
         self._teampreview: bool = False
-        self._teampreview_team: Set[Pokemon] = set()
-        self._teampreview_opponent_team: Set[Pokemon] = set()
+        self._teampreview_team: List[Pokemon] = []
+        self._teampreview_opponent_team: List[Pokemon] = []
         self._anybody_inactive: bool = False
         self._reconnected: bool = True
         self.logger: Optional[Logger] = logger
@@ -610,7 +610,12 @@ class AbstractBattle(ABC):
                 self._weather = {Weather.from_showdown_message(weather): self.turn}
         elif event[1] == "faint":
             mon = event[2]
-            self.get_pokemon(mon).faint()
+            pokemon = self.get_pokemon(mon)
+            pokemon.faint()
+            if pokemon.species == "dondozo" and isinstance(self.active_pokemon, list):
+                other = self.active_pokemon[1 if event[2][:3].endswith("a") else 0]
+                if other is not None and Effect.COMMANDER in other.effects:
+                    other.end_effect("Commander")
         elif event[1] == "-unboost":
             mon, stat, amount = event[2:5]
             self.get_pokemon(mon).boost(stat, -int(amount))
@@ -659,6 +664,11 @@ class AbstractBattle(ABC):
             elif effect == "ability: Mummy":
                 target = event[5].replace("[of] ", "")
                 self.get_pokemon(target).set_temporary_ability("mummy")
+            elif effect == "ability: Symbiosis":
+                self.get_pokemon(event[5].replace("[of] ", "")).item = event[4].replace(
+                    "[item] ", ""
+                )
+                self.get_pokemon(target).item = None
             elif target != "":  # ['', '-activate', '', 'move: Splash']
                 self.get_pokemon(target).start_effect(effect)
         elif event[1] == "-status":
@@ -877,11 +887,7 @@ class AbstractBattle(ABC):
                 )
             else:
                 return self._players.append(
-                    {
-                        "username": username,
-                        "player": player,
-                        "avatar": avatar,
-                    }
+                    {"username": username, "player": player, "avatar": avatar}
                 )
 
         elif event[1] == "poke":
@@ -959,9 +965,9 @@ class AbstractBattle(ABC):
     def _register_teampreview_pokemon(self, player: str, details: str):
         mon = Pokemon(details=details, gen=self.gen)
         if player != self._player_role:
-            self._teampreview_opponent_team.add(mon)
+            self._teampreview_opponent_team.append(mon)
         elif mon.name not in [p.name for p in self.teampreview_team]:
-            self._teampreview_team.add(mon)
+            self._teampreview_team.append(mon)
 
     def side_end(self, side: str, condition_str: str):
         if side[:2] == self._player_role:
@@ -1378,22 +1384,22 @@ class AbstractBattle(ABC):
         return self._teampreview
 
     @property
-    def teampreview_team(self) -> Set[Pokemon]:
+    def teampreview_team(self) -> List[Pokemon]:
         """
         :return: The player's team during teampreview.
-        :rtype: Set[Pokemon]
+        :rtype: List[Pokemon]
         """
         return self._teampreview_team
 
     @teampreview_team.setter
-    def teampreview_team(self, value: Set[Pokemon]):
+    def teampreview_team(self, value: List[Pokemon]):
         self._teampreview_team = value
 
     @property
-    def teampreview_opponent_team(self) -> Set[Pokemon]:
+    def teampreview_opponent_team(self) -> List[Pokemon]:
         """
         :return: The opponent's team during teampreview.
-        :rtype: Set[Pokemon]
+        :rtype: List[Pokemon]
         """
         return self._teampreview_opponent_team
 
