@@ -287,6 +287,8 @@ class DoubleBattle(AbstractBattle):
                 f"that is currently battling"
             )
 
+        if pokemon.is_terastallized and move.id == "terastarstorm":
+            return [self.EMPTY_TARGET_POSITION]
         if dynamax or pokemon.is_dynamaxed:
             if move.category == MoveCategory.STATUS:
                 targets = [self.EMPTY_TARGET_POSITION]
