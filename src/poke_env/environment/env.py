@@ -91,7 +91,15 @@ class _EnvPlayer(Player):
         self.battle: Optional[AbstractBattle] = None
 
     def choose_move(self, battle: AbstractBattle) -> Awaitable[BattleOrder]:
-        return self._env_move(battle)
+        return self._choose_move(battle)
+
+    async def _choose_move(self, battle: AbstractBattle) -> BattleOrder:
+        if not self.battle or self.battle.finished:
+            self.battle = battle
+        assert self.battle.battle_tag == battle.battle_tag
+        await self.battle_queue.async_put(battle)
+        order = await self.order_queue.async_get()
+        return order
 
     def teampreview(self, battle: AbstractBattle) -> Awaitable[str]:
         return self._teampreview(battle)
@@ -100,59 +108,26 @@ class _EnvPlayer(Player):
         if isinstance(battle, Battle):
             return self.random_teampreview(battle)
         elif isinstance(battle, DoubleBattle):
-            order1 = await self._env_move(battle)
+            species = [p.base_species for p in battle.team.values()]
+            order1 = await self._choose_move(battle)
             if isinstance(order1, (ForfeitBattleOrder, _EmptyBattleOrder)):
                 return order1.message
-            upd_battle = self._simulate_teampreview_switchin(order1, battle)
-            order2 = await self._env_move(upd_battle)
+            assert isinstance(order1, DoubleBattleOrder)
+            assert isinstance(order1.first_order.order, Pokemon)
+            assert isinstance(order1.second_order.order, Pokemon)
+            action1 = species.index(order1.first_order.order.base_species) + 1
+            action2 = species.index(order1.second_order.order.base_species) + 1
+            order2 = await self._choose_move(battle)
             if isinstance(order2, (ForfeitBattleOrder, _EmptyBattleOrder)):
                 return order2.message
-            action1 = self.order_to_action(order1, battle)  # type: ignore
-            action2 = self.order_to_action(order2, upd_battle)  # type: ignore
-            assert all(action1 >= 0) and all(action2 >= 0)
-            return f"/team {action1[0]}{action1[1]}{action2[0]}{action2[1]}"
+            assert isinstance(order2, DoubleBattleOrder)
+            assert isinstance(order2.first_order.order, Pokemon)
+            assert isinstance(order2.second_order.order, Pokemon)
+            action3 = species.index(order2.first_order.order.base_species) + 1
+            action4 = species.index(order2.second_order.order.base_species) + 1
+            return f"/team {action1}{action2}{action3}{action4}"
         else:
             raise TypeError()
-
-    @staticmethod
-    def _simulate_teampreview_switchin(order: BattleOrder, battle: DoubleBattle):
-        assert isinstance(order, DoubleBattleOrder)
-        assert order.first_order is not None
-        assert order.second_order is not None
-        pokemon1 = order.first_order.order
-        pokemon2 = order.second_order.order
-        assert isinstance(pokemon1, Pokemon)
-        assert isinstance(pokemon2, Pokemon)
-        upd_battle = copy.deepcopy(battle)
-        upd_battle.switch(
-            f"{upd_battle.player_role}a: {pokemon1.base_species.capitalize()}",
-            pokemon1._last_details,
-            f"{pokemon1.current_hp}/{pokemon1.max_hp}",
-        )
-        upd_battle.switch(
-            f"{upd_battle.player_role}b: {pokemon2.base_species.capitalize()}",
-            pokemon2._last_details,
-            f"{pokemon2.current_hp}/{pokemon2.max_hp}",
-        )
-        upd_battle.available_switches[0] = [
-            p
-            for p in battle.available_switches[0]
-            if p.base_species not in [pokemon1.base_species, pokemon2.base_species]
-        ]
-        upd_battle.available_switches[1] = [
-            p
-            for p in battle.available_switches[1]
-            if p.base_species not in [pokemon1.base_species, pokemon2.base_species]
-        ]
-        return upd_battle
-
-    async def _env_move(self, battle: AbstractBattle) -> BattleOrder:
-        if not self.battle or self.battle.finished:
-            self.battle = battle
-        assert self.battle.battle_tag == battle.battle_tag
-        await self.battle_queue.async_put(battle)
-        order = await self.order_queue.async_get()
-        return order
 
     def _battle_finished_callback(self, battle: AbstractBattle):
         asyncio.run_coroutine_threadsafe(self.battle_queue.async_put(battle), POKE_LOOP)
@@ -262,8 +237,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             team=team,
             strict_battle_tracking=strict_battle_tracking,
         )
-        self.agent1.action_to_order = self.action_to_order  # type: ignore
-        self.agent1.order_to_action = self.order_to_action  # type: ignore
         self.agent2 = _EnvPlayer(
             account_configuration=account_configuration2
             or AccountConfiguration.generate(self.__class__.__name__, rand=True),
@@ -282,8 +255,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             team=team,
             strict_battle_tracking=strict_battle_tracking,
         )
-        self.agent2.action_to_order = self.action_to_order  # type: ignore
-        self.agent2.order_to_action = self.order_to_action  # type: ignore
         self.agents = [self.agent1.username, self.agent2.username]
         self.possible_agents = [self.agent1.username, self.agent2.username]
         self.battle1: Optional[AbstractBattle] = None
