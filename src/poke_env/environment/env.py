@@ -3,7 +3,6 @@ For a black-box implementation consider using the module env_player.
 """
 
 import asyncio
-import copy
 import time
 from abc import abstractmethod
 from concurrent.futures import Future
