@@ -195,7 +195,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         team: Optional[Union[str, Teambuilder]] = None,
         fake: bool = False,
         strict: bool = True,
-        strict_battle_tracking: bool = False,
     ):
         """
         :param account_configuration: Player configuration. If empty, defaults to an
@@ -287,7 +286,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             ping_timeout=ping_timeout,
             loop=self._loop,
             team=team,
-            strict_battle_tracking=strict_battle_tracking,
         )
         self.agent1.action_to_order = self.action_to_order  # type: ignore
         self.agent1.order_to_action = self.order_to_action  # type: ignore
@@ -308,7 +306,6 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             ping_timeout=ping_timeout,
             loop=self._loop,
             team=team,
-            strict_battle_tracking=strict_battle_tracking,
         )
         self.agent2.action_to_order = self.action_to_order  # type: ignore
         self.agent2.order_to_action = self.order_to_action  # type: ignore

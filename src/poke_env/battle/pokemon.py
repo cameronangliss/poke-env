@@ -273,8 +273,10 @@ class Pokemon:
         species = species.split(",")[0]
         self._update_from_pokedex(species, store_species=False)
 
-    def heal(self, hp_status: str):
-        self.set_hp_status(hp_status)
+    def identifies_as(self, ident: str) -> bool:
+        return self.base_species == to_id_str(ident) or self.base_species in [
+            to_id_str(substr) for substr in ident.split("-")
+        ]
 
     def invert_boosts(self):
         self._boosts = {k: -v for k, v in self._boosts.items()}
@@ -483,7 +485,7 @@ class Pokemon:
         ]
 
         if len(self._possible_abilities) == 1:
-            self._ability = self._possible_abilities[0]
+            self.ability = self._possible_abilities[0]
 
         self._heightm = dex_entry["heightm"]
         self._weightkg = dex_entry["weightkg"]
@@ -542,9 +544,9 @@ class Pokemon:
             return
 
         if "ability" in request_pokemon:
-            self._ability = request_pokemon["ability"]
+            self.ability = request_pokemon["ability"]
         elif "baseAbility" in request_pokemon:
-            self._ability = request_pokemon["baseAbility"]
+            self.ability = request_pokemon["baseAbility"]
 
         self._last_request = request_pokemon
 
@@ -607,9 +609,12 @@ class Pokemon:
         assert (
             pkmn_request["active"] == self.active
         ), f"{pkmn_request['active']} != {self.active}\nrequest: {pkmn_request}"
-        # assert pkmn_request["item"] == (
-        #     self.item or ""
-        # ), f"{pkmn_request['item']} != {self.item or ''}"
+        if self.item == "unknown_item":
+            self._item = pkmn_request["item"]
+        if self._data.gen > 4:
+            assert pkmn_request["item"] == (
+                self.item or ""
+            ), f"{pkmn_request['item']} != {self.item or ''}"
         if self.base_species == "ditto":
             return
         assert (
@@ -670,9 +675,6 @@ class Pokemon:
             for stat, val in zip(["hp", "atk", "def", "spa", "spd", "spe"], stats):
                 self._stats[stat] = val
 
-    def used_z_move(self):
-        self._item = None
-
     def was_illusioned(self, fields: Dict[Field, int]):
         self._current_hp = None
         self._max_hp = None
@@ -708,7 +710,7 @@ class Pokemon:
                     [v for m, v in self.moves.items() if m.startswith("hiddenpower")][0]
                 )
             else:
-                assert {
+                has_copy_move = {
                     "copycat",
                     "metronome",
                     "mefirst",
@@ -716,12 +718,26 @@ class Pokemon:
                     "assist",
                     "transform",
                     "mimic",
-                }.intersection(self.moves), (
-                    f"Error with move {move}. Expected self.moves to contain copycat, "
-                    "metronome, mefirst, mirrormove, assist, transform or mimic. Got"
-                    f" {self.moves}"
+                }.intersection(self.moves)
+
+                """
+                Check if the pokemon has abilities that can grant moves
+
+                Some abilities (like Dancer, which can be copied via Trace) allow using
+                moves that aren't in the pokemon's moveset
+                """
+                has_move_granting_ability = (
+                    self.ability in ("dancer", "trace") if self.ability else False
                 )
-                moves.append(Move(move, gen=self.gen))
+
+                if not has_copy_move and not has_move_granting_ability:
+                    assert False, (
+                        f"Error with move {move}. Expected self.moves to contain copycat, "
+                        "metronome, mefirst, mirrormove, assist, transform, mimic, "
+                        f"or the pokemon to have a move-granting ability. Got moves: {self.moves}, "
+                        f"ability: {self.ability}"
+                    )
+                moves.append(Move(move, gen=self._data.gen))
         return moves
 
     def damage_multiplier(self, type_or_move: Union[PokemonType, Move]) -> float:
@@ -754,6 +770,13 @@ class Pokemon:
             return self._temporary_ability
         else:
             return self._ability
+
+    @ability.setter
+    def ability(self, ability: Optional[str]):
+        if ability is None:
+            self._ability = None
+        else:
+            self._ability = to_id_str(ability)
 
     @property
     def active(self) -> Optional[bool]:
@@ -885,6 +908,16 @@ class Pokemon:
         """
         return self._heightm
 
+    @property
+    def hp_status(self) -> str:
+        if self.status == Status.FNT:
+            s = "0 fnt"
+        else:
+            s = f"{self.current_hp}/{self.max_hp}"
+            if self.status is not None:
+                s += f" {self.status.name.lower()}"
+        return s
+
     def identifier(self, player_role: str) -> str:
         """ "
         :param player_role: The player's role in the battle (p1 or p2)
@@ -921,16 +954,6 @@ class Pokemon:
     @item.setter
     def item(self, item: Optional[str]):
         self._item = to_id_str(item) if item is not None else None
-
-    @property
-    def hp_status(self) -> str:
-        if self.status == Status.FNT:
-            s = "0 fnt"
-        else:
-            s = f"{self.current_hp}/{self.max_hp}"
-            if self.status is not None:
-                s += f" {self.status.name.lower()}"
-        return s
 
     @property
     def level(self) -> int:
@@ -1087,6 +1110,10 @@ class Pokemon:
         """
         return self._status
 
+    @status.setter
+    def status(self, status: Optional[Union[Status, str]]):
+        self._status = Status[status.upper()] if isinstance(status, str) else status
+
     @property
     def status_counter(self) -> int:
         """
@@ -1094,10 +1121,6 @@ class Pokemon:
         :rtype: int
         """
         return self._status_counter
-
-    @status.setter  # type: ignore
-    def status(self, status: Optional[Union[Status, str]]):
-        self._status = Status[status.upper()] if isinstance(status, str) else status
 
     @property
     def stab_multiplier(self) -> float:

@@ -101,6 +101,9 @@ def test_battle_field_interactions():
     battle.parse_message(["", "-fieldend", "Electric terrain"])
     assert not battle.fields
 
+    with pytest.raises(Exception):
+        battle.parse_message(["", "-fieldend", "Electric terrain"])
+
 
 def test_battle_weather_interactions():
     logger = MagicMock()
@@ -414,7 +417,6 @@ def test_battle_request_and_interactions(example_request):
 
     battle.opponent_active_pokemon.item = "grassiumz"
     battle.parse_message(["", "-zpower", "p1: Sunflora"])
-    assert battle.opponent_active_pokemon.item is None
 
     sunflora = battle.opponent_active_pokemon
     assert sunflora.fainted is False
