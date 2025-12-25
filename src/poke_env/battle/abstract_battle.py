@@ -87,6 +87,7 @@ class AbstractBattle(ABC):
         "_max_team_size",
         "_maybe_trapped",
         "_opponent_dynamax_turn",
+        "_opponent_packed_team",
         "_opponent_rating",
         "_opponent_side_conditions",
         "_opponent_team",
@@ -95,6 +96,7 @@ class AbstractBattle(ABC):
         "_opponent_used_tera",
         "_opponent_used_z_move",
         "_opponent_username",
+        "_packed_team",
         "_player_role",
         "_player_username",
         "_players",
@@ -145,6 +147,8 @@ class AbstractBattle(ABC):
         self._teampreview: bool = False
         self._teampreview_team: List[Pokemon] = []
         self._teampreview_opponent_team: List[Pokemon] = []
+        self._packed_team: str | None = None
+        self._opponent_packed_team: str | None = None
         self._anybody_inactive: bool = False
         self._reconnected: bool = True
         self.logger: Optional[Logger] = logger

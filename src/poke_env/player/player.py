@@ -301,9 +301,12 @@ class Player(ABC):
                         await self._handle_battle_request(battle)
             elif split_message[1] == "showteam":
                 role = split_message[2]
-                teambuilder_team = Teambuilder.parse_packed_team(
-                    "|".join(split_message[3:])
-                )
+                packed_team = "|".join(split_message[3:])
+                if role == battle.player_role:
+                    battle._packed_team = packed_team
+                else:
+                    battle._opponent_packed_team = packed_team
+                teambuilder_team = Teambuilder.parse_packed_team(packed_team)
                 teampreview_team = (
                     battle.teampreview_team
                     if role == battle.player_role
