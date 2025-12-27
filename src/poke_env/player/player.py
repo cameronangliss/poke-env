@@ -676,7 +676,8 @@ class Player(ABC):
             perf_counter() - start_time,
         )
 
-    def random_teampreview(self, battle: AbstractBattle) -> str:
+    @staticmethod
+    def random_teampreview(battle: AbstractBattle) -> str:
         """Returns a random valid teampreview order for the given battle.
 
         :param battle: The battle.
