@@ -463,7 +463,7 @@ class Pokemon:
         self._temporary_types = []
 
     def transform(self, into: Pokemon):
-        dex_entry = self._data.pokedex[into.species]
+        dex_entry = GenData.from_gen(self.gen).pokedex[into.species]
         self._heightm = dex_entry["heightm"]
         self._weightkg = dex_entry["weightkg"]
         self._temporary_base_stats = dex_entry["baseStats"]
