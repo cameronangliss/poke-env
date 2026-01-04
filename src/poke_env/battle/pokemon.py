@@ -474,9 +474,6 @@ class Pokemon:
         for m in self._temporary_moves.values():
             m._current_pp = 5
         self._boosts = into.boosts.copy()
-        self._moves = {m.id: Move(m.id, m._gen) for m in into.moves.values()}
-        for m in self._moves.values():
-            m._current_pp = 5
 
     def _update_from_pokedex(self, species: str, store_species: bool = True):
         species = to_id_str(species)
