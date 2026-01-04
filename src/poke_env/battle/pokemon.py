@@ -579,8 +579,7 @@ class Pokemon:
         self._update_from_details(details)
 
         for move in request_pokemon["moves"]:
-            id_ = Move.retrieve_id(move)
-            self.moves[id_] = Move(move_id=id_, gen=self.gen, raw_id=move)
+            self._add_move(move)
 
         if "stats" in request_pokemon:
             for stat in request_pokemon["stats"]:
