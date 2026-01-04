@@ -581,7 +581,7 @@ class AbstractBattle(ABC):
                 temp_pokemon = self.get_pokemon(pokemon)
                 temp_pokemon.start_effect("MINIMIZE")
 
-            move_data = GenData(self.gen).moves
+            move_data = GenData.from_gen(self.gen).moves
             if isinstance(self.active_pokemon, Pokemon):
                 move_data = move_data[Move.retrieve_id(move)]
                 if move_data["target"] == "all" or presumed_target is None:
