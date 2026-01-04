@@ -314,7 +314,7 @@ class Pokemon:
         if use:
             if move is not None:
                 move.use(pressure)
-            for m in self._moves.values():
+            for m in self.moves.values():
                 m._is_last_used = m is move
 
         if move is not None and move.is_protect_counter and not failed:
@@ -454,7 +454,7 @@ class Pokemon:
         if self._status == Status.TOX:
             self._status_counter = 0
 
-        for move in self._moves.values():
+        for move in self.moves.values():
             move._is_last_used = False
 
     def terastallize(self, type_: str):
@@ -580,7 +580,7 @@ class Pokemon:
 
         for move in request_pokemon["moves"]:
             id_ = Move.retrieve_id(move)
-            self._moves[id_] = Move(move_id=id_, gen=self.gen, raw_id=move)
+            self.moves[id_] = Move(move_id=id_, gen=self.gen, raw_id=move)
 
         if "stats" in request_pokemon:
             for stat in request_pokemon["stats"]:
