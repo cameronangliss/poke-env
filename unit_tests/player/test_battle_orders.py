@@ -8,6 +8,11 @@ from poke_env.player import (
 )
 
 
+def test_recharge_order():
+    recharge = Move("recharge", gen=9)
+    assert SingleBattleOrder(recharge).message == "/choose move 1"
+
+
 def test_single_orders():
     move = Move("flamethrower", gen=8)
     assert (

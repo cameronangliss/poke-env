@@ -6,11 +6,12 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from poke_env.battle.effect import Effect
 from poke_env.battle.field import Field
+from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
 from poke_env.battle.pokemon_type import PokemonType
 from poke_env.battle.side_condition import STACKABLE_CONDITIONS, SideCondition
 from poke_env.battle.weather import Weather
-from poke_env.data import to_id_str
+from poke_env.data import GenData, to_id_str
 from poke_env.data.replay_template import REPLAY_TEMPLATE
 
 
@@ -460,9 +461,10 @@ class AbstractBattle(ABC):
             self._check_damage_message_for_item(event)
             self._check_damage_message_for_ability(event)
         elif event[1] == "move":
+            use = True
             failed = False
             override_move = None
-            use = True
+            reveal_other_move = False
 
             for move_failed_suffix in ["[miss]", "[still]", "[notarget]"]:
                 if event[-1] == move_failed_suffix:
@@ -487,13 +489,11 @@ class AbstractBattle(ABC):
 
             if event[-1].startswith(("[from] move: ", "[from]move: ")):
                 override_move = event.pop().split(": ")[-1]
-                if override_move in {
-                    "Sleep Talk",
-                    "Copycat",
-                    "Metronome",
-                    "Nature Power",
-                    "Round",
-                }:
+
+                if override_move == "Sleep Talk":
+                    # Sleep talk was used, but also reveals another move
+                    reveal_other_move = True
+                elif override_move in {"Copycat", "Metronome", "Nature Power", "Round"}:
                     pass
                 elif override_move in {"Grass Pledge", "Water Pledge", "Fire Pledge"}:
                     override_move = None
@@ -529,6 +529,7 @@ class AbstractBattle(ABC):
                         self.battle_tag,
                         self.turn,
                     )
+            presumed_target = None
             if event[-1] == "[from] Magic Coat":
                 return
 
@@ -580,13 +581,64 @@ class AbstractBattle(ABC):
                 temp_pokemon = self.get_pokemon(pokemon)
                 temp_pokemon.start_effect("MINIMIZE")
 
+            move_data = GenData(self.gen).moves
+            if isinstance(self.active_pokemon, Pokemon):
+                move_data = move_data[Move.retrieve_id(move)]
+                if move_data["target"] == "all" or presumed_target is None:
+                    target = (
+                        self.opponent_active_pokemon
+                        if self.player_role == pokemon[:2]
+                        else self.active_pokemon
+                    )
+                else:
+                    target = self.get_pokemon(presumed_target)
+                pressure = (
+                    target.ability == "pressure"
+                    and not target.fainted
+                    and (
+                        move_data["target"]
+                        in [
+                            "all",
+                            "allAdjacent",
+                            "allAdjacentFoes",
+                            "any",
+                            "normal",
+                            "randomNormal",
+                            "scripted",
+                        ]
+                        or "mustpressure" in move_data["flags"]
+                    )
+                )
+            elif isinstance(self.active_pokemon, list):
+                pressure = move_data[Move.retrieve_id(move)]["target"] in [
+                    "all",
+                    "allAdjacent",
+                    "allAdjacentFoes",
+                    "foeSide",
+                ]
+            else:
+                raise TypeError()
+
+            mon = self.get_pokemon(pokemon)
             if override_move:
                 # Moves that can trigger this branch results in two `move` messages being sent.
                 # We're setting use=False in the one (with the override) in order to prevent two pps from being used
                 # incorrectly.
-                self.get_pokemon(pokemon).moved(move, failed=failed, use=False)
+                mon.moved(move, failed=failed, use=False, reveal=reveal_other_move)
+                mon.moves[Move.retrieve_id(override_move)].current_pp -= (
+                    2 if pressure else 1
+                )
             else:
-                self.get_pokemon(pokemon).moved(move, failed=failed, use=use)
+                mon.moved(move, failed=failed, use=use, pressure=pressure)
+                if not failed and move in {
+                    "Sleep Talk",
+                    "Copycat",
+                    "Metronome",
+                    "Nature Power",
+                }:
+                    # wait until override move to decide how much pp to deduct
+                    # since override determines pressure interaction
+                    mon.moves[Move.retrieve_id(move)].current_pp += 1
         elif event[1] == "cant":
             pokemon, _ = event[2:4]
             self.get_pokemon(pokemon).cant_move()
