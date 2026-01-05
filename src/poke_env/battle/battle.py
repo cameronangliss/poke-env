@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Union
 from poke_env.battle.abstract_battle import AbstractBattle
 from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
+from poke_env.data import GenData
 from poke_env.player.battle_order import DefaultBattleOrder, SingleBattleOrder
 
 
@@ -98,6 +99,7 @@ class Battle(AbstractBattle):
             if self.active_pokemon is not None:
                 if (
                     strict_battle_tracking
+                    and self.gen not in [7, 8]
                     and "illusion" not in [p.ability for p in self.team.values()]
                     and "illusion"
                     not in [p.ability for p in self.opponent_team.values()]
@@ -134,6 +136,37 @@ class Battle(AbstractBattle):
                         self._available_switches.append(pokemon)
                 elif not pokemon.active and not pokemon.fainted:
                     self._available_switches.append(pokemon)
+
+    def _pressure_on(self, pokemon: str, move: str, target_str: Optional[str]) -> bool:
+        if self.gen == 7:
+            return False
+        move_data = GenData.from_gen(self.gen).moves[Move.retrieve_id(move)]
+        if move_data["target"] == "all" or target_str is None:
+            target = (
+                self.opponent_active_pokemon
+                if self.player_role == pokemon[:2]
+                else self.active_pokemon
+            )
+            assert target is not None
+        else:
+            target = self.get_pokemon(target_str)
+        return (
+            target.ability == "pressure"
+            and not target.fainted
+            and (
+                move_data["target"]
+                in [
+                    "all",
+                    "allAdjacent",
+                    "allAdjacentFoes",
+                    "any",
+                    "normal",
+                    "randomNormal",
+                    "scripted",
+                ]
+                or "mustpressure" in move_data["flags"]
+            )
+        )
 
     def switch(self, pokemon_str: str, details: str, hp_status: str):
         identifier = pokemon_str.split(":")[0][:2]
