@@ -238,8 +238,10 @@ class Pokemon:
             ), f"{pkmn_request['ability']} != {self.ability or ''}"
 
     def check_move_consistency(self, active_request: Dict[str, Any]):
-        if self.base_species in ["ditto", "mew"] or (
-            "canDynamax" not in active_request and "maxMoves" in active_request
+        if (
+            self.base_species in ["ditto", "mew"]
+            or "copycat" in [m.id for m in self.moves.values()]
+            or ("canDynamax" not in active_request and "maxMoves" in active_request)
         ):
             return
         for move_request in active_request["moves"]:
@@ -261,11 +263,20 @@ class Pokemon:
                 ), f"{move_request['maxpp']} != {move.max_pp}"
             assert move.target is not None
             if "target" in move_request:
-                assert Target.from_showdown_message(move_request["target"]).name == (
+                target_name = (
                     Target.SELF.name
                     if move.non_ghost_target and PokemonType.GHOST not in self.types
-                    else move.target.name
-                ), f"{Target.from_showdown_message(move_request['target']).name} != {move.target.name}\n{move_request}"
+                    else (
+                        Target.ALL_ADJACENT_FOES.name
+                        if move.id == "terastarstorm"
+                        and self.type_1 == PokemonType.STELLAR
+                        else move.target.name
+                    )
+                )
+                assert (
+                    Target.from_showdown_message(move_request["target"]).name
+                    == target_name
+                ), f"{Target.from_showdown_message(move_request['target']).name} != {target_name}\n{move_request}"
 
     def clear_active(self):
         self._active = False
