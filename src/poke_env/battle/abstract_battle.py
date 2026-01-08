@@ -483,8 +483,7 @@ class AbstractBattle(ABC):
             use = True
             failed = False
             reveal = True
-            override_move = None
-            reveal_other_move = False
+            overridden_move = None
 
             for move_failed_suffix in ["[miss]", "[still]", "[notarget]"]:
                 if event[-1] == move_failed_suffix:
@@ -499,6 +498,7 @@ class AbstractBattle(ABC):
 
             if event[-1] in {"[from] lockedmove", "[from]lockedmove"}:
                 use = False
+                reveal = False
                 event = event[:-1]
 
             if event[-1] in {"[from] Pursuit", "[from]Pursuit", "[zeffect]"}:
@@ -508,20 +508,25 @@ class AbstractBattle(ABC):
                 event = event[:-1]
 
             if event[-1].startswith(("[from] move: ", "[from]move: ")):
-                override_move = event.pop().split(": ")[-1]
+                overridden_move = event.pop().split(": ")[-1]
 
-                if override_move == "Sleep Talk":
-                    # Sleep talk was used, but also reveals another move
-                    reveal_other_move = True
-                elif override_move in {"Copycat", "Metronome", "Nature Power", "Round"}:
+                if overridden_move == "Sleep Talk":
                     pass
-                elif override_move in {"Grass Pledge", "Water Pledge", "Fire Pledge"}:
-                    override_move = None
+                elif overridden_move in {
+                    "Copycat",
+                    "Metronome",
+                    "Nature Power",
+                    "Round",
+                }:
+                    # triggers moves not owned by actor, so no reveal
+                    reveal = False
+                elif overridden_move in {"Grass Pledge", "Water Pledge", "Fire Pledge"}:
+                    overridden_move = None
                 elif self.logger is not None:
                     self.logger.warning(
                         "Unmanaged [from] move message received - move %s in cleaned up "
                         "message %s in battle %s turn %d",
-                        override_move,
+                        overridden_move,
                         event,
                         self.battle_tag,
                         self.turn,
@@ -550,7 +555,6 @@ class AbstractBattle(ABC):
                         self.battle_tag,
                         self.turn,
                     )
-            presumed_target = None
             if event[-1] == "[from] Magic Coat":
                 return
 
@@ -560,6 +564,7 @@ class AbstractBattle(ABC):
             if event[-1] == "":
                 event = event[:-1]
 
+            presumed_target = None
             if len(event) == 4:
                 pokemon, move = event[2:4]
             elif len(event) == 5:
@@ -604,18 +609,14 @@ class AbstractBattle(ABC):
 
             pressure = self._pressure_on(pokemon, move, presumed_target)
             mon = self.get_pokemon(pokemon)
-            if override_move:
+            if overridden_move:
                 # Moves that can trigger this branch results in two `move` messages being sent.
                 # We're setting use=False in the one (with the override) in order to prevent two pps from being used
                 # incorrectly.
-                mon.moved(move, failed=failed, use=False, reveal=reveal_other_move)
-                mon.moves[Move.retrieve_id(override_move)].current_pp -= (
-                    2 if pressure else 1
-                )
+                mon.moved(move, failed=failed, use=False, reveal=reveal)
+                overriden = mon.moves[Move.retrieve_id(overridden_move)]
+                overriden.use(pressure)
             else:
-                mon.moved(
-                    move, failed=failed, use=use, reveal=reveal, pressure=pressure
-                )
                 if not failed and move in {
                     "Sleep Talk",
                     "Copycat",
@@ -624,7 +625,10 @@ class AbstractBattle(ABC):
                 }:
                     # wait until override move to decide how much pp to deduct
                     # since override determines pressure interaction
-                    mon.moves[Move.retrieve_id(move)].current_pp += 1
+                    use = False
+                mon.moved(
+                    move, failed=failed, use=use, reveal=reveal, pressure=pressure
+                )
         elif event[1] == "cant":
             if len(event) == 4:
                 pokemon, _ = event[2:4]
@@ -769,6 +773,9 @@ class AbstractBattle(ABC):
                     "[item] ", ""
                 )
                 self.get_pokemon(target).item = None
+            elif effect == "item: Leppa Berry":
+                move = to_id_str(event[4])
+                self.get_pokemon(target).moves[move].current_pp += 10
             elif target != "":  # ['', '-activate', '', 'move: Splash']
                 self.get_pokemon(target).start_effect(effect)
         elif event[1] == "-status":
