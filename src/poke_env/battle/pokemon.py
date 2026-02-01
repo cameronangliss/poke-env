@@ -393,7 +393,7 @@ class Pokemon:
             else species_id_str
         )
         self.temporary_ability = None
-        if mega_species in self._data.pokedex:
+        if mega_species in GenData.from_gen(self.gen).pokedex:
             self._update_from_pokedex(mega_species, store_species=False)
         elif stone[-1] in "XYxy":
             mega_species = mega_species + stone[-1].lower()
@@ -791,7 +791,7 @@ class Pokemon:
                         f"or the pokemon to have a move-granting ability. Got moves: {self.moves}, "
                         f"ability: {self.ability}"
                     )
-                moves.append(Move(move, gen=self._data.gen))
+                moves.append(Move(move, gen=self.gen))
         return moves
 
     def damage_multiplier(self, type_or_move: Union[PokemonType, Move]) -> float:
