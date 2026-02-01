@@ -139,13 +139,7 @@ class DoubleBattle(AbstractBattle):
                     force_self_team=True,
                     details=pokemon_dict["details"],
                 )
-                if (
-                    strict_battle_tracking
-                    and self.gen not in [7, 8]
-                    and "illusion" not in [p.ability for p in self.team.values()]
-                    and "illusion"
-                    not in [p.ability for p in self.opponent_team.values()]
-                ):
+                if strict_battle_tracking:
                     active_pokemon.check_move_consistency(active_request)
                 if self.player_role is not None:
                     if (
@@ -221,7 +215,12 @@ class DoubleBattle(AbstractBattle):
                         self._available_switches[i].append(pokemon)
 
     def _pressure_on(self, pokemon: str, move: str, target_str: Optional[str]) -> bool:
-        move_data = GenData.from_gen(self.gen).moves[Move.retrieve_id(move)]
+        move_id = Move.retrieve_id(move)
+        if move_id not in GenData.from_gen(self.gen).moves:
+            # This happens when `move` is a z-move. Since z-moves cannot be PP tracked
+            # anyway, we just return False here.
+            return False
+        move_data = GenData.from_gen(self.gen).moves[move_id]
         if move_data["target"] == "all" or target_str is None:
             targets = (
                 self.opponent_active_pokemon

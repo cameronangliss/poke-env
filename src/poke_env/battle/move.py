@@ -77,15 +77,23 @@ class Move:
         "_base_power_override",
         "_current_pp",
         "_dynamaxed_move",
+        "_from_mimic",
         "_gen",
         "_is_last_used",
         "_request_target",
     )
 
-    def __init__(self, move_id: str, gen: int, raw_id: Optional[str] = None):
+    def __init__(
+        self,
+        move_id: str,
+        gen: int,
+        raw_id: Optional[str] = None,
+        from_mimic: bool = False,
+    ):
         self._id = move_id
         self._base_power_override = None
         self._gen = gen
+        self._from_mimic = from_mimic
 
         if move_id.startswith("hiddenpower") and raw_id is not None:
             base_power = "".join([c for c in raw_id if c.isdigit()])
@@ -106,11 +114,14 @@ class Move:
     def __repr__(self) -> str:
         return f"{self._id} (Move object)"
 
-    def use(self, pressure: bool = False):
+    def use(self, pressure: bool = False, overridden: bool = False):
+        decrement = 1
         if pressure:
-            self.current_pp -= 2
-        else:
-            self.current_pp -= 1
+            decrement += 1
+        if overridden:
+            decrement -= 1
+        # don't let PP go below 0
+        self._current_pp = max(self._current_pp - decrement, 0)
 
     @staticmethod
     def is_id_z(id_: str, gen: int) -> bool:
@@ -217,14 +228,6 @@ class Move:
         :rtype: int
         """
         return self._current_pp
-
-    @current_pp.setter
-    def current_pp(self, pp: int):
-        """
-        :param pp: New PP value.
-        :type pp: int
-        """
-        self._current_pp = min(max(0, pp), self.max_pp)
 
     @property
     def damage(self) -> Union[int, str]:
@@ -462,7 +465,10 @@ class Move:
         :return: The move's max pp.
         :rtype: int
         """
-        return self.entry["pp"] * 8 // 5
+        max_pp = self.entry["pp"] * 8 // 5
+        if self._gen < 3 and not self._from_mimic:
+            max_pp = min(max_pp, 61)
+        return max_pp
 
     @property
     def n_hit(self) -> Tuple[int, int]:
