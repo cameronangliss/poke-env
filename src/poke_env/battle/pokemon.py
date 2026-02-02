@@ -589,7 +589,7 @@ class Pokemon:
         if into.ability is not None:
             self.ability = into.ability
         self._temporary_types = [PokemonType.from_name(t) for t in dex_entry["types"]]
-        self._transform_moves = {m.id: Move(m.id, m._gen) for m in into.moves.values()}
+        self._transform_moves = {m.id: Move(m.id, m.gen) for m in into.moves.values()}
         for m in self._transform_moves.values():
             m._current_pp = 5
         self._boosts = into.boosts.copy()
@@ -980,14 +980,6 @@ class Pokemon:
         return self._active_turns == 1
 
     @property
-    def gen(self) -> int:
-        """
-        :return: The generation of the pokemon.
-        :rtype: int
-        """
-        return self._gen
-
-    @property
     def forme_change_ability(self) -> Optional[str]:
         """
         :return: The pokemon's ability after changing forme. None if the pokemon hasn't changed forme.
@@ -998,6 +990,14 @@ class Pokemon:
     @forme_change_ability.setter
     def forme_change_ability(self, ability: Optional[str]):
         self._forme_change_ability = to_id_str(ability) if ability is not None else None
+
+    @property
+    def gen(self) -> int:
+        """
+        :return: The generation of the pokemon.
+        :rtype: int
+        """
+        return self._gen
 
     @property
     def gender(self) -> Optional[PokemonGender]:
