@@ -2,12 +2,12 @@ from logging import Logger
 from typing import Any, Dict, List, Optional, Union
 
 from poke_env.battle.abstract_battle import AbstractBattle
+from poke_env.battle.effect import Effect
 from poke_env.battle.move import SPECIAL_MOVES, Move
 from poke_env.battle.move_category import MoveCategory
 from poke_env.battle.pokemon import Pokemon
 from poke_env.battle.pokemon_type import PokemonType
 from poke_env.battle.target import Target
-from poke_env.data import GenData
 from poke_env.player.battle_order import (
     DefaultBattleOrder,
     PassBattleOrder,
@@ -83,6 +83,24 @@ class DoubleBattle(AbstractBattle):
             pokemon_2 = None
         return [pokemon_1, pokemon_2]
 
+    def _get_target_mon(
+        self, pokemon: str, target_type: str, target_str: str | None
+    ) -> Pokemon | None:
+        if target_str is not None and pokemon[:2] == target_str[:2]:
+            return None
+        elif target_type != "all" and target_str is not None:
+            return self.get_pokemon(target_str)
+        else:
+            targets = (
+                self.opponent_active_pokemon
+                if self.player_role == pokemon[:2]
+                else self.active_pokemon
+            )
+            for target in targets:
+                if target is not None and target.ability == "pressure":
+                    return target
+            return None
+
     def parse_request(
         self, request: Dict[str, Any], strict_battle_tracking: bool = False
     ):
@@ -140,7 +158,9 @@ class DoubleBattle(AbstractBattle):
                     details=pokemon_dict["details"],
                 )
                 if strict_battle_tracking:
-                    active_pokemon.check_move_consistency(active_request)
+                    active_pokemon.check_move_consistency(
+                        active_request, is_doubles=True
+                    )
                 if self.player_role is not None:
                     if (
                         active_pokemon_number == 0
@@ -213,45 +233,6 @@ class DoubleBattle(AbstractBattle):
                             self._available_switches[i].append(pokemon)
                     elif not pokemon.active and not pokemon.fainted:
                         self._available_switches[i].append(pokemon)
-
-    def _pressure_on(self, pokemon: str, move: str, target_str: Optional[str]) -> bool:
-        move_id = Move.retrieve_id(move)
-        if move_id not in GenData.from_gen(self.gen).moves:
-            # This happens when `move` is a z-move. Since z-moves cannot be PP tracked
-            # anyway, we just return False here.
-            return False
-        move_data = GenData.from_gen(self.gen).moves[move_id]
-        if move_data["target"] == "all" or target_str is None:
-            targets = (
-                self.opponent_active_pokemon
-                if self.player_role == pokemon[:2]
-                else self.active_pokemon
-            )
-            cleaned_targets = [t for t in targets if t is not None]
-            if not cleaned_targets:
-                return False
-            target = cleaned_targets[0]
-            for t in cleaned_targets:
-                if target.ability != "pressure":
-                    target = t
-            assert target is not None
-        else:
-            target = self.get_pokemon(target_str)
-        return (
-            target.ability == "pressure"
-            and not target.fainted
-            and move_data["target"]
-            in [
-                "all",
-                "allAdjacent",
-                "allAdjacentFoes",
-                "any",
-                "normal",
-                "randomNormal",
-                "scripted",
-            ]
-            or "mustpressure" in move_data["flags"]
-        )
 
     def switch(self, pokemon_str: str, details: str, hp_status: str):
         pokemon_identifier = pokemon_str.split(":")[0][:3]
@@ -339,8 +320,15 @@ class DoubleBattle(AbstractBattle):
         elif move.non_ghost_target and (
             PokemonType.GHOST not in pokemon.types
         ):  # fixing target for Curse
-            return [self.EMPTY_TARGET_POSITION]
-        elif move.id == "terastarstorm" and pokemon.type_1 == PokemonType.STELLAR:
+            targets = [self.EMPTY_TARGET_POSITION]
+        elif move.id == "pollenpuff" and Effect.HEAL_BLOCK in pokemon.effects:
+            targets = [self.OPPONENT_1_POSITION, self.OPPONENT_2_POSITION]
+        elif (
+            move.id == "terastarstorm"
+            and not pokemon.fainted
+            and pokemon.is_terastallized
+            and pokemon.tera_type == PokemonType.STELLAR
+        ):
             targets = [self.EMPTY_TARGET_POSITION]
         else:
             targets = {
