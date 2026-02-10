@@ -919,6 +919,22 @@ class Pokemon:
         )
 
     @property
+    def base_types(self) -> List[PokemonType]:
+        """
+        :return: The pokemon's non-Tera types, accounting for temporary type changes.
+            Unlike `types`, this ignores Terastallization. Unlike `original_types`,
+            this includes temporary type overrides (e.g. Transform/typechange effects).
+        :rtype: List[PokemonType]
+        """
+        if len(self._temporary_types) > 0:
+            return self._temporary_types
+        else:
+            types = [self._type_1]
+            if self._type_2 is not None:
+                types.append(self._type_2)
+            return types
+
+    @property
     def boosts(self) -> Dict[str, int]:
         """
         :return: The pokemon's boosts.
@@ -1292,10 +1308,11 @@ class Pokemon:
         :return: The pokemon's first type.
         :rtype: PokemonType
         """
-        if len(self._temporary_types) > 0:
+        if self._terastallized and self._terastallized_type is not None:
+            return self._terastallized_type
+        elif len(self._temporary_types) > 0:
             return self._temporary_types[0]
-        else:
-            return self._type_1
+        return self._type_1
 
     @property
     def type_2(self) -> Optional[PokemonType]:
@@ -1303,10 +1320,11 @@ class Pokemon:
         :return: The pokemon's second type.
         :rtype: Optional[PokemonType]
         """
-        if len(self._temporary_types) > 1:
+        if self._terastallized or len(self._temporary_types) == 1:
+            return None
+        elif len(self._temporary_types) > 1:
             return self._temporary_types[1]
-        else:
-            return self._type_2
+        return self._type_2
 
     @property
     def types(self) -> List[PokemonType]:
