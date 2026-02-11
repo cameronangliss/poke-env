@@ -360,6 +360,7 @@ def test_battle_request_and_interactions(example_request):
     assert battle.opponent_active_pokemon.must_recharge is True
 
     battle.opponent_active_pokemon._add_move("solarbeam")
+    battle.parse_message(["", "-prepare", "p1: Latias", "Solar Beam", "p2: Necrozma"])
     assert (
         battle.opponent_active_pokemon.preparing_move
         == battle.opponent_active_pokemon.moves["solarbeam"]

@@ -147,6 +147,8 @@ class DoubleBattle(AbstractBattle):
             self._teampreview = False
 
         side = request["side"]
+        if side["pokemon"]:
+            self._player_role = side["pokemon"][0]["ident"][:2]
         self._update_team_from_request(side, strict_battle_tracking)
 
         if "active" in request:

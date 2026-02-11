@@ -102,7 +102,6 @@ def test_random_teampreview():
 def test_choose_random_move_doubles(pseudo_random, example_doubles_request):
     logger = MagicMock()
     battle = DoubleBattle("tag", "username", logger, 8)
-    battle._player_role = "p1"
     player = RandomPlayer()
     battle.parse_request(example_doubles_request)
     battle.switch("p2a: Tyranitar", "Tyranitar, L50, M", "48/48")
@@ -234,7 +233,6 @@ async def return_move():
 @pytest.mark.asyncio
 async def test_awaitable_move(send_message_patch):
     player = SimplePlayer(start_listening=False)
-    player.ps_client.websocket = AsyncMock()
     battle = Battle("bat1", player.username, player.logger, 8)
     battle._teampreview = False
 
