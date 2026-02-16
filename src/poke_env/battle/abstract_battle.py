@@ -12,7 +12,7 @@ from poke_env.battle.pokemon import Pokemon
 from poke_env.battle.pokemon_type import PokemonType
 from poke_env.battle.side_condition import STACKABLE_CONDITIONS, SideCondition
 from poke_env.battle.weather import Weather
-from poke_env.data import GenData, to_id_str
+from poke_env.data import to_id_str
 from poke_env.data.replay_template import REPLAY_TEMPLATE
 
 
@@ -77,7 +77,6 @@ class AbstractBattle(ABC):
         "_can_tera",
         "_can_z_move",
         "_current_observation",
-        "_data",
         "_dynamax_turn",
         "_fields",
         "_finished",
@@ -133,9 +132,6 @@ class AbstractBattle(ABC):
         save_replays: Union[str, bool],
         gen: int,
     ):
-        # Load data
-        self._data = GenData.from_gen(gen)
-
         # Utils attributes
         self._battle_tag: str = battle_tag
         self._gen: int = gen
@@ -269,14 +265,12 @@ class AbstractBattle(ABC):
             )
 
         if request:
-            team[identifier] = Pokemon(
-                request_pokemon=request, name=name, gen=self._data.gen
-            )
+            team[identifier] = Pokemon(request_pokemon=request, name=name, gen=self.gen)
         elif details:
-            team[identifier] = Pokemon(details=details, name=name, gen=self._data.gen)
+            team[identifier] = Pokemon(details=details, name=name, gen=self.gen)
         else:
             species = identifier[4:]
-            team[identifier] = Pokemon(species=species, name=name, gen=self._data.gen)
+            team[identifier] = Pokemon(species=species, name=name, gen=self.gen)
 
         return team[identifier]
 
@@ -730,12 +724,23 @@ class AbstractBattle(ABC):
                     self._opponent_used_dynamax = True
         elif event[1] == "-activate":
             target, effect = event[2:4]
-            if target and effect == "move: Skill Swap":
-                self.get_pokemon(target).start_effect(effect, event[4:6])
-                actor = event[6].replace("[of] ", "")
-                self.get_pokemon(actor).temporary_ability = event[5]
+            if target and effect.replace("move: ", "") == "Skill Swap":
+                if "[of] " in event[6]:
+                    actor = event[6].replace("[of] ", "")
+                    abilities = event[4:6]
+                else:
+                    actor = event[4]
+                    abilities = event[5:7]
+                abilities = [
+                    d.replace("[ability] ", "").replace("[ability2] ", "")
+                    for d in abilities
+                ]
+                self.get_pokemon(target).start_effect(effect, abilities)
+                self.get_pokemon(actor).temporary_ability = abilities[1]
             elif effect == "ability: Mummy":
-                target = event[5].replace("[of] ", "")
+                target = (
+                    event[5].replace("[of] ", "") if "[of] " in event[5] else event[4]
+                )
                 self.get_pokemon(target).temporary_ability = "mummy"
             elif effect == "ability: Wandering Spirit":
                 actor = event[2]
@@ -1042,7 +1047,7 @@ class AbstractBattle(ABC):
 
     def _register_teampreview_pokemon(self, player: str, details: str):
         if player != self._player_role:
-            mon = Pokemon(details=details, gen=self._data.gen)
+            mon = Pokemon(details=details, gen=self.gen)
             self._teampreview_opponent_team.append(mon)
 
     def side_end(self, side: str, condition_str: str):

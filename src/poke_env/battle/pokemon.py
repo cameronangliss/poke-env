@@ -8,6 +8,7 @@ from poke_env.battle.move import SPECIAL_MOVES, Move
 from poke_env.battle.pokemon_gender import PokemonGender
 from poke_env.battle.pokemon_type import PokemonType
 from poke_env.battle.status import Status
+from poke_env.battle.target import Target
 from poke_env.battle.z_crystal import Z_CRYSTAL
 from poke_env.data import GenData, to_id_str
 from poke_env.stats import compute_raw_stats
@@ -22,9 +23,9 @@ class Pokemon:
         "_base_stats",
         "_boosts",
         "_current_hp",
-        "_data",
         "_effects",
         "_first_turn",
+        "_gen",
         "_gender",
         "_heightm",
         "_item",
@@ -65,9 +66,6 @@ class Pokemon:
         details: Optional[str] = None,
         teambuilder: Optional[TeambuilderPokemon] = None,
     ):
-        # Base data
-        self._data = GenData.from_gen(gen)
-
         # Species related attributes
         self._base_stats: Dict[str, int]
         self._heightm: int
@@ -87,7 +85,7 @@ class Pokemon:
         self._shiny: Optional[bool] = False
 
         # Battle related attributes
-
+        self._gen = gen
         self._active: bool = False
         self._boosts: Dict[str, int] = {
             "accuracy": 0,
@@ -103,7 +101,7 @@ class Pokemon:
         self._first_turn: bool = False
         self._terastallized: bool = False
         self._terastallized_type: Optional[PokemonType] = None
-        self._item: Optional[str] = self._data.UNKNOWN_ITEM
+        self._item: Optional[str] = GenData.from_gen(gen).UNKNOWN_ITEM
         self._last_request: Optional[Dict[str, Any]] = {}
         self._last_details: str = ""
         self._must_recharge: bool = False
@@ -155,11 +153,11 @@ class Pokemon:
         """Store the move if applicable."""
         id_ = Move.retrieve_id(move_id)
 
-        if not Move.should_be_stored(id_, self._data.gen):
+        if not Move.should_be_stored(id_, self.gen):
             return None
 
         if id_ not in self._moves:
-            move = Move(move_id=id_, raw_id=move_id, gen=self._data.gen)
+            move = Move(move_id=id_, raw_id=move_id, gen=self.gen)
             self._moves[id_] = move
         if use:
             self._moves[id_].use()
@@ -179,6 +177,116 @@ class Pokemon:
 
         if self._status == Status.SLP:
             self._status_counter += 1
+
+    def check_consistency(self, pkmn_request: Dict[str, Any], player_role: str):
+        assert (
+            pkmn_request["ident"] == f"{player_role}: {self.name}"
+        ), f"{pkmn_request['ident']} != {player_role}: {self.name}"
+        split_details = pkmn_request["details"].split(", ")
+        level = None
+        gender = None
+        shiny = split_details[-1] == "shiny"
+        if shiny:
+            split_details.pop()
+        if len(split_details) == 3:
+            _, level, gender = split_details
+        elif len(split_details) == 2:
+            if split_details[1].startswith("L"):
+                _, level = split_details
+            else:
+                _, gender = split_details
+        level = int(level[1:]) if level is not None else 100
+        gender = (
+            PokemonGender.from_request_details(gender)
+            if gender is not None
+            else PokemonGender.NEUTRAL
+        )
+        assert level == self.level, f"{level} != {self.level}"
+        assert self.gender is not None
+        assert (
+            gender == self.gender
+        ), f"{gender.name.lower()} != {self.gender.name.lower()}"
+        assert shiny == self.shiny, f"{shiny} != {self.shiny}"
+        assert (
+            pkmn_request["active"] == self.active
+        ), f"{pkmn_request['active']} != {self.active}"
+        if self.item == "unknown_item":
+            self._item = pkmn_request["item"]
+        if self.gen > 4:
+            assert pkmn_request["item"] == (
+                self.item or ""
+            ), f"{pkmn_request['item']} != {self.item or ''}"
+        if self.base_species == "ditto":
+            return
+        assert (
+            pkmn_request["condition"] == self.hp_status
+        ), f"{pkmn_request['condition']} != {self.hp_status}"
+        if self.base_species == "mew":
+            return
+        for move_request, move in zip(pkmn_request["moves"], self.moves.values()):
+            assert Move.retrieve_id(move_request) == Move.retrieve_id(
+                move.id
+            ), f"{Move.retrieve_id(move_request)} != {Move.retrieve_id(move.id)}"
+        if self.ability is None:
+            self.ability = pkmn_request["baseAbility"]
+        assert pkmn_request["baseAbility"] == (
+            self.base_ability or ""
+        ), f"{pkmn_request['baseAbility']} != {self.base_ability or ''}"
+        if "ability" in pkmn_request:
+            assert pkmn_request["ability"] == (
+                self.ability or ""
+            ), f"{pkmn_request['ability']} != {self.ability or ''}"
+
+    def check_move_consistency(
+        self, active_request: Dict[str, Any], is_doubles: bool = False
+    ):
+        if self.base_species in ["ditto", "mew"]:
+            return
+        for move_request in active_request["moves"]:
+            matches = [
+                m
+                for m in self.moves.values()
+                if Move.retrieve_id(m.id) == move_request["id"]
+            ]
+            assert len(matches) <= 1
+            if not matches:
+                continue
+            move = matches[0]
+            if (
+                "pp" in move_request
+                and self.gen not in [1, 2, 3, 4, 7, 8]
+                and not is_doubles
+            ):
+                # exclude early gens because of unreliable Showdown event messages
+                # exclude gen 7 and 8 because of Z-move and Max Move PP untrackability
+                # TODO: when gen 4 issues gets fixed by PS team, 4 can be allowed again
+                # exclude doubles because targets are sometimes not resolvable
+                assert (
+                    move_request["pp"] == move.current_pp
+                ), f"{move_request['pp']} != {move.current_pp}\n{move_request}"
+            if "maxpp" in move_request:
+                assert (
+                    move_request["maxpp"] == move.max_pp
+                ), f"{move_request['maxpp']} != {move.max_pp}"
+            assert move.target is not None
+            if "target" in move_request:
+                if move.non_ghost_target and PokemonType.GHOST not in self.types:
+                    target_name = Target.SELF.name
+                elif (
+                    move.id == "terastarstorm"
+                    and not self.fainted
+                    and self.is_terastallized
+                    and self.tera_type == PokemonType.STELLAR
+                ):
+                    target_name = Target.ALL_ADJACENT_FOES.name
+                elif move.id == "pollenpuff" and Effect.HEAL_BLOCK in self.effects:
+                    target_name = Target.ADJACENT_FOE.name
+                else:
+                    target_name = move.target.name
+                assert (
+                    Target.from_showdown_message(move_request["target"]).name
+                    == target_name
+                ), f"{Target.from_showdown_message(move_request['target']).name} != {target_name}\n{move_request}"
 
     def clear_active(self):
         self._active = False
@@ -292,7 +400,7 @@ class Pokemon:
             else species_id_str
         )
         self.temporary_ability = None
-        if mega_species in self._data.pokedex:
+        if mega_species in GenData.from_gen(self.gen).pokedex:
             self._update_from_pokedex(mega_species, store_species=False)
         elif stone[-1] in "XYxy":
             mega_species = mega_species + stone[-1].lower()
@@ -473,7 +581,7 @@ class Pokemon:
 
     def _update_from_pokedex(self, species: str, store_species: bool = True):
         species = to_id_str(species)
-        dex_entry = self._data.pokedex[species]
+        dex_entry = GenData.from_gen(self.gen).pokedex[species]
         if store_species:
             self._species = species
         self._base_stats = dex_entry["baseStats"]
@@ -591,65 +699,6 @@ class Pokemon:
             for stat in request_pokemon["stats"]:
                 self._stats[stat] = request_pokemon["stats"][stat]
 
-    def check_consistency(self, pkmn_request: Dict[str, Any], player_role: str):
-        assert (
-            pkmn_request["ident"] == f"{player_role}: {self.name}"
-        ), f"{pkmn_request['ident']} != {player_role}: {self.name}\nrequest: {pkmn_request}"
-        split_details = pkmn_request["details"].split(", ")
-        level = None
-        gender = None
-        shiny = split_details[-1] == "shiny"
-        if shiny:
-            split_details.pop()
-        if len(split_details) == 3:
-            _, level, gender = split_details
-        elif len(split_details) == 2:
-            if split_details[1].startswith("L"):
-                _, level = split_details
-            else:
-                _, gender = split_details
-        level = int(level[1:]) if level is not None else 100
-        gender = (
-            PokemonGender.from_request_details(gender)
-            if gender is not None
-            else PokemonGender.NEUTRAL
-        )
-        assert level == self.level, f"{level} != {self.level}\nrequest: {pkmn_request}"
-        assert self.gender is not None
-        assert (
-            gender == self.gender
-        ), f"{gender.name.lower()} != {self.gender.name.lower()}\nrequest: {pkmn_request}"
-        assert shiny == self.shiny, f"{shiny} != {self.shiny}\nrequest: {pkmn_request}"
-        assert (
-            pkmn_request["active"] == self.active
-        ), f"{pkmn_request['active']} != {self.active}\nrequest: {pkmn_request}"
-        if self.item == "unknown_item":
-            self._item = pkmn_request["item"]
-        if self._data.gen > 4:
-            assert pkmn_request["item"] == (
-                self.item or ""
-            ), f"{pkmn_request['item']} != {self.item or ''}"
-        if self.base_species == "ditto":
-            return
-        assert (
-            pkmn_request["condition"] == self.hp_status
-        ), f"{pkmn_request['condition']} != {self.hp_status}\nrequest: {pkmn_request}"
-        if self.base_species == "mew":
-            return
-        for move_request, move in zip(pkmn_request["moves"], self.moves.values()):
-            assert Move.retrieve_id(move_request) == Move.retrieve_id(
-                move.id
-            ), f"{Move.retrieve_id(move_request)} != {Move.retrieve_id(move.id)}\nrequest: {pkmn_request}"
-        if self.ability is None:
-            self.ability = pkmn_request["baseAbility"]
-        assert pkmn_request["baseAbility"] == (
-            self.base_ability or ""
-        ), f"{pkmn_request['baseAbility']} != {self.base_ability or ''}"
-        if "ability" in pkmn_request:
-            assert pkmn_request["ability"] == (
-                self.ability or ""
-            ), f"{pkmn_request['ability']} != {self.ability or ''}"
-
     def _update_from_teambuilder(self, tb: TeambuilderPokemon):
         if tb.nickname is not None and tb.species is None:
             self._update_from_pokedex(tb.nickname)
@@ -674,14 +723,19 @@ class Pokemon:
             self._terastallized_type = PokemonType.from_name(tb.tera_type)
         self._moves = {}
         for move_str in tb.moves:
-            move = Move(Move.retrieve_id(move_str), gen=self._data.gen)
+            move = Move(Move.retrieve_id(move_str), gen=self.gen)
             self._moves[move.id] = move
 
         if tb.level:
             nature = tb.nature.lower() if tb.nature else "serious"
             self._stats = {}
             stats = compute_raw_stats(
-                self._species, tb.evs, tb.ivs, tb.level, nature, self._data
+                self._species,
+                tb.evs,
+                tb.ivs,
+                tb.level,
+                nature,
+                GenData.from_gen(self.gen),
             )
             for stat, val in zip(["hp", "atk", "def", "spa", "spd", "spe"], stats):
                 self._stats[stat] = val
@@ -712,7 +766,7 @@ class Pokemon:
                 else:
                     moves.append(self.moves[move])
             elif move in SPECIAL_MOVES:
-                moves.append(Move(move, gen=self._data.gen))
+                moves.append(Move(move, gen=self.gen))
             elif (
                 move == "hiddenpower"
                 and len([m for m in self.moves if m.startswith("hiddenpower")]) == 1
@@ -748,7 +802,7 @@ class Pokemon:
                         f"or the pokemon to have a move-granting ability. Got moves: {self.moves}, "
                         f"ability: {self.ability}"
                     )
-                moves.append(Move(move, gen=self._data.gen))
+                moves.append(Move(move, gen=self.gen))
         return moves
 
     def damage_multiplier(self, type_or_move: Union[PokemonType, Move]) -> float:
@@ -766,7 +820,7 @@ class Pokemon:
         if isinstance(type_or_move, Move):
             type_or_move = type_or_move.type
         return type_or_move.damage_multiplier(
-            self.type_1, self.type_2, type_chart=self._data.type_chart
+            self.type_1, self.type_2, type_chart=GenData.from_gen(self.gen).type_chart
         )
 
     @property
@@ -837,7 +891,7 @@ class Pokemon:
         :return: The pokemon's base species.
         :rtype: str
         """
-        dex_entry = self._data.pokedex[self._species]
+        dex_entry = GenData.from_gen(self.gen).pokedex[self._species]
         return to_id_str(dex_entry["baseSpecies"])
 
     @property
@@ -904,6 +958,14 @@ class Pokemon:
         :rtype: bool
         """
         return self._first_turn
+
+    @property
+    def gen(self) -> int:
+        """
+        :return: The generation of the pokemon.
+        :rtype: int
+        """
+        return self._gen
 
     @property
     def gender(self) -> Optional[PokemonGender]:
@@ -1028,7 +1090,7 @@ class Pokemon:
         if self._name is not None:
             return self._name
         else:
-            dex_entry = self._data.pokedex[self._species]
+            dex_entry = GenData.from_gen(self.gen).pokedex[self._species]
             if dex_entry["baseSpecies"].islower():
                 return dex_entry["name"]
             else:
