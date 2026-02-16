@@ -89,8 +89,7 @@ class _EnvPlayer(Player):
         super().__init__(*args, **kwargs)
         if choose_on_teampreview is None:
             self.logger.warning(
-                "choose_on_teampreview was not set to True in environment, so ",
-                "teampreview will be decided randomly.",
+                "choose_on_teampreview was not set to True in environment, so teampreview will be decided randomly."
             )
         self._choose_on_teampreview = choose_on_teampreview or False
         self.battle_queue = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
