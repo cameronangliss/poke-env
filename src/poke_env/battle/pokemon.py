@@ -183,7 +183,7 @@ class Pokemon:
     def check_consistency(self, pkmn_request: Dict[str, Any], player_role: str):
         assert (
             pkmn_request["ident"] == f"{player_role}: {self.name}"
-        ), f"{pkmn_request['ident']} != {player_role}: {self.name}\nrequest: {pkmn_request}"
+        ), f"{pkmn_request['ident']} != {player_role}: {self.name}"
         split_details = pkmn_request["details"].split(", ")
         level = None
         gender = None
@@ -203,15 +203,15 @@ class Pokemon:
             if gender is not None
             else PokemonGender.NEUTRAL
         )
-        assert level == self.level, f"{level} != {self.level}\nrequest: {pkmn_request}"
+        assert level == self.level, f"{level} != {self.level}"
         assert self.gender is not None
         assert (
             gender == self.gender
-        ), f"{gender.name.lower()} != {self.gender.name.lower()}\nrequest: {pkmn_request}"
-        assert shiny == self.shiny, f"{shiny} != {self.shiny}\nrequest: {pkmn_request}"
+        ), f"{gender.name.lower()} != {self.gender.name.lower()}"
+        assert shiny == self.shiny, f"{shiny} != {self.shiny}"
         assert (
             pkmn_request["active"] == self.active
-        ), f"{pkmn_request['active']} != {self.active}\nrequest: {pkmn_request}"
+        ), f"{pkmn_request['active']} != {self.active}"
         if self.item == "unknown_item":
             # needed for item initialization in start of game,
             # done anyway in update_from_request()
@@ -225,7 +225,7 @@ class Pokemon:
             return
         assert (
             pkmn_request["condition"] == self.hp_status
-        ), f"{pkmn_request['condition']} != {self.hp_status}\nrequest: {pkmn_request}"
+        ), f"{pkmn_request['condition']} != {self.hp_status}"
         if not (
             # only check moves if mimic hasn't copied a move yet,
             # or if mimic copies a move not already in the moveset
@@ -235,7 +235,7 @@ class Pokemon:
             for move_request, move in zip(pkmn_request["moves"], self.moves.values()):
                 assert Move.retrieve_id(move_request) == Move.retrieve_id(
                     move.id
-                ), f"{Move.retrieve_id(move_request)} != {Move.retrieve_id(move.id)}\nrequest: {pkmn_request}, {self._moves._base_moves}, {self.base_moves}, {self.mimic_move}"
+                ), f"{Move.retrieve_id(move_request)} != {Move.retrieve_id(move.id)}"
         if self.ability is None:
             # needed for ability initialization in start of game,
             # done anyway in update_from_request()
