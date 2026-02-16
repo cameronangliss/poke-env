@@ -83,9 +83,7 @@ class _EnvPlayer(Player):
     battle_queue: _AsyncQueue[AbstractBattle]
     order_queue: _AsyncQueue[BattleOrder]
 
-    def __init__(
-        self, *args: Any, choose_on_teampreview: bool | None, **kwargs: Any
-    ):
+    def __init__(self, *args: Any, choose_on_teampreview: bool | None, **kwargs: Any):
         super().__init__(*args, **kwargs)
         if choose_on_teampreview is None:
             self.logger.warning(
