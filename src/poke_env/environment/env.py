@@ -83,8 +83,16 @@ class _EnvPlayer(Player):
     battle_queue: _AsyncQueue[AbstractBattle]
     order_queue: _AsyncQueue[BattleOrder]
 
-    def __init__(self, *args: Any, **kwargs: Any):
+    def __init__(
+        self, *args: Any, choose_on_teampreview: bool | None, **kwargs: Any
+    ):
         super().__init__(*args, **kwargs)
+        if choose_on_teampreview is None:
+            self.logger.warning(
+                "choose_on_teampreview was not set to True in environment, so ",
+                "teampreview will be decided randomly.",
+            )
+        self._choose_on_teampreview = choose_on_teampreview or False
         self.battle_queue = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
         self.order_queue = _AsyncQueue(create_in_poke_loop(asyncio.Queue, 1))
         self.battle: Optional[AbstractBattle] = None
@@ -104,7 +112,9 @@ class _EnvPlayer(Player):
         return self._teampreview(battle)
 
     async def _teampreview(self, battle: AbstractBattle) -> str:
-        if isinstance(battle, Battle):
+        if not self._choose_on_teampreview:
+            return self.random_teampreview(battle)
+        elif isinstance(battle, Battle):
             return self.random_teampreview(battle)
         elif isinstance(battle, DoubleBattle):
             if battle.format is None or "vgc" not in battle.format:
@@ -159,6 +169,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         ping_timeout: Optional[float] = 20.0,
         challenge_timeout: Optional[float] = 60.0,
         team: Optional[Union[str, Teambuilder]] = None,
+        choose_on_teampreview: bool | None = None,
         fake: bool = False,
         strict: bool = True,
     ):
@@ -210,6 +221,11 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             team string, a showdown packed team string, of a ShowdownTeam object.
             Defaults to None.
         :type team: str or Teambuilder, optional
+        :param choose_on_teampreview: Controls switch-action-based team preview
+            selection in formats that support it. If True, team preview uses
+            environment actions to pick leads. If False, team preview defaults to
+            a random order. If None, it behaves as False (with a warning).
+        :type choose_on_teampreview: bool | None
         :param fake: If true, action-order converters will try to avoid returning a default
             output if at all possible, even if the output isn't a legal decision. Defaults
             to False.
@@ -235,6 +251,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             ping_interval=ping_interval,
             ping_timeout=ping_timeout,
             team=team,
+            choose_on_teampreview=choose_on_teampreview,
         )
         self.agent2 = _EnvPlayer(
             account_configuration=account_configuration2
@@ -252,6 +269,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             ping_interval=ping_interval,
             ping_timeout=ping_timeout,
             team=team,
+            choose_on_teampreview=choose_on_teampreview,
         )
         self.agents: List[str] = []
         self.possible_agents = [self.agent1.username, self.agent2.username]
