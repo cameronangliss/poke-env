@@ -687,6 +687,8 @@ class Player(ABC):
         """
         members = list(range(1, len(battle.team) + 1))
         random.shuffle(members)
+        for i in members:
+            list(battle.team.values())[i - 1]._selected_in_teampreview = True
         return "/team " + "".join([str(c) for c in members])
 
     def reset_battles(self):
@@ -708,6 +710,10 @@ class Player(ABC):
         pokemons 6 and 1 in the back in double battles.
 
         Please refer to Pokemon Showdown's protocol documentation for more information.
+
+        IMPORTANT: If overwriting this method, make sure to mark Pokemon selected in
+        teampreview as such by setting their _selected_in_teampreview attribute to True.
+        See random_teampreview implementation for an example.
 
         :param battle: The battle.
         :type battle: AbstractBattle
