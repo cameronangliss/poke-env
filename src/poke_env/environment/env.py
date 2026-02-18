@@ -119,6 +119,7 @@ class _EnvPlayer(Player):
             if battle.format is None or "vgc" not in battle.format:
                 return self.random_teampreview(battle)
             species = [p.base_species for p in battle.team.values()]
+            # derive first pair of teampreview selections from first order
             order1 = await self._choose_move(battle)
             if isinstance(order1, (ForfeitBattleOrder, _EmptyBattleOrder)):
                 return order1.message
@@ -127,6 +128,9 @@ class _EnvPlayer(Player):
             assert isinstance(order1.second_order.order, Pokemon)
             action1 = species.index(order1.first_order.order.base_species) + 1
             action2 = species.index(order1.second_order.order.base_species) + 1
+            list(battle.team.values())[action1 - 1]._selected_in_teampreview = True
+            list(battle.team.values())[action2 - 1]._selected_in_teampreview = True
+            # derive second pair of teampreview selections from second order
             order2 = await self._choose_move(battle)
             if isinstance(order2, (ForfeitBattleOrder, _EmptyBattleOrder)):
                 return order2.message
@@ -135,6 +139,8 @@ class _EnvPlayer(Player):
             assert isinstance(order2.second_order.order, Pokemon)
             action3 = species.index(order2.first_order.order.base_species) + 1
             action4 = species.index(order2.second_order.order.base_species) + 1
+            list(battle.team.values())[action3 - 1]._selected_in_teampreview = True
+            list(battle.team.values())[action4 - 1]._selected_in_teampreview = True
             return f"/team {action1}{action2}{action3}{action4}"
         else:
             raise TypeError()
