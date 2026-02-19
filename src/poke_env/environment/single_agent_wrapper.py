@@ -67,8 +67,8 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ) -> Tuple[ObsType, Dict[str, Any]]:
-        self.opponent.reset_battles()
         obs, infos = self.env.reset(seed, options)
+        self.opponent.reset_battles()
         assert self.env.battle2 is not None
         self.opponent._battles[self.env.battle2.battle_tag] = self.env.battle2
         self._np_random = self.env._np_random
