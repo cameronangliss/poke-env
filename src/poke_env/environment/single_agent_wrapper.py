@@ -46,10 +46,10 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
             teampreview_order_list = [
                 int(i) for i in teampreview_order_str.removeprefix("/team ")
             ]
-            opp_action = np.array(teampreview_order_list[:2])
+            opp_action = np.array(teampreview_order_list[:2])  # type: ignore
             self.second_teampreview_action = np.array(teampreview_order_list[2:])
         else:
-            opp_action = self.second_teampreview_action
+            opp_action = self.second_teampreview_action  # type: ignore
             self.second_teampreview_action = None
         actions = {
             self.env.agent1.username: action,
