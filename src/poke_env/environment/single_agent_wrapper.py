@@ -48,8 +48,15 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
             ]
             opp_action = np.array(teampreview_order_list[:2])  # type: ignore
             self.second_teampreview_action = np.array(teampreview_order_list[2:])
+            # only the first two pokemon are selected in teampreview for now
+            for i, pokemon in enumerate(self.env.battle2.team.values(), start=1):
+                pokemon._selected_in_teampreview = i in teampreview_order_list[:2]
         else:
             opp_action = self.second_teampreview_action  # type: ignore
+            # now the second two pokemon are selected in teampreview
+            for i in opp_action:
+                mon = list(self.env.battle2.team.values())[i - 1]
+                mon._selected_in_teampreview = True
             self.second_teampreview_action = None
         actions = {
             self.env.agent1.username: action,
