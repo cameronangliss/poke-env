@@ -263,6 +263,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
         self._ping_timeout = ping_timeout
         self._challenge_timeout = challenge_timeout
         self._team = team
+        self._choose_on_teampreview = choose_on_teampreview
         self._fake = fake
         self._strict = strict
         self._loop = asyncio.new_event_loop()
