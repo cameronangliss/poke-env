@@ -353,6 +353,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             ping_timeout=self._ping_timeout,
             loop=self._loop,
             team=self._team,
+            choose_on_teampreview=self._choose_on_teampreview,
         )
         self.agent1.action_to_order = self.action_to_order  # type: ignore
         self.agent1.order_to_action = self.order_to_action  # type: ignore
@@ -374,6 +375,7 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             ping_timeout=self._ping_timeout,
             loop=self._loop,
             team=self._team,
+            choose_on_teampreview=self._choose_on_teampreview,
         )
         self.agent2.action_to_order = self.action_to_order  # type: ignore
         self.agent2.order_to_action = self.order_to_action  # type: ignore
