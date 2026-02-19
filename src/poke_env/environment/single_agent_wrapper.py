@@ -1,10 +1,10 @@
 from typing import Any, Awaitable, Dict, Optional, Tuple
 
+import numpy as np
+import numpy.typing as npt
 from gymnasium import Env
 
-from poke_env.battle.double_battle import DoubleBattle
-from poke_env.environment.env import ActionType, ObsType, PokeEnv, _EnvPlayer
-from poke_env.player.battle_order import BattleOrder
+from poke_env.environment.env import ActionType, ObsType, PokeEnv
 from poke_env.player.player import Player
 
 
@@ -14,7 +14,7 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         self.opponent = opponent
         self.observation_space = list(env.observation_spaces.values())[0]
         self.action_space = list(env.action_spaces.values())[0]
-        self.first_teampreview_order: Optional[BattleOrder] = None
+        self.second_teampreview_action: npt.NDArray[np.int64] | None = None
 
     def step(
         self, action: ActionType
@@ -29,27 +29,28 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         :return: Tuple of (observation, reward, terminated, truncated, info) for the main agent.
         :rtype: Tuple[ObsType, float, bool, bool, Dict[str, Any]]
         """
-        assert self.env.agent2.battle is not None
-        if not self.env.agent2.battle.teampreview:
-            battle = self.env.agent2.battle
-            opp_order = self.opponent.choose_move(battle)
+        assert self.env.battle2 is not None
+        if not self.env.battle2.teampreview:
+            opp_order = self.opponent.choose_move(self.env.battle2)
             assert not isinstance(opp_order, Awaitable)
-        elif self.first_teampreview_order is None:
-            battle = self.env.agent2.battle
-            opp_order = self.opponent.choose_move(battle)
-            assert not isinstance(opp_order, Awaitable)
-            self.first_teampreview_order = opp_order
-        else:
-            assert isinstance(self.env.agent2.battle, DoubleBattle)
-            battle = _EnvPlayer._simulate_teampreview_switchin(
-                self.first_teampreview_order, self.env.agent2.battle
+            opp_action = self.env.order_to_action(
+                opp_order, self.env.battle2, fake=self.env._fake, strict=self.env._strict
             )
-            opp_order = self.opponent.choose_move(battle)
-            assert not isinstance(opp_order, Awaitable)
-            self.first_teampreview_order = None
-        opp_action = self.env.order_to_action(
-            opp_order, battle, fake=self.env._fake, strict=self.env._strict
-        )
+        elif self.env.battle2.format is None or "vgc" not in self.env.battle2.format:
+            raise NotImplementedError(
+                "Teampreview is only supported for VGC formats in SingleAgentWrapper."
+            )
+        elif self.second_teampreview_action is None:
+            teampreview_order_str = self.opponent.teampreview(self.env.battle2)
+            assert not isinstance(teampreview_order_str, Awaitable)
+            teampreview_order_list = [
+                int(i) for i in teampreview_order_str.removeprefix("/team ")
+            ]
+            opp_action = np.array(teampreview_order_list[:2])  # type: ignore
+            self.second_teampreview_action = np.array(teampreview_order_list[2:])
+        else:
+            opp_action = self.second_teampreview_action  # type: ignore
+            self.second_teampreview_action = None
         actions = {
             self.env.agent1.username: action,
             self.env.agent2.username: opp_action,
@@ -66,8 +67,8 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
     def reset(
         self, *, seed: Optional[int] = None, options: Optional[Dict[str, Any]] = None
     ) -> Tuple[ObsType, Dict[str, Any]]:
-        self.opponent.reset_battles()
         obs, infos = self.env.reset(seed, options)
+        self.opponent.reset_battles()
         assert self.env.battle2 is not None
         self.opponent._battles[self.env.battle2.battle_tag] = self.env.battle2
         self._np_random = self.env._np_random
