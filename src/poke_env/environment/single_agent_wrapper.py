@@ -52,7 +52,7 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
         else:
             opp_action = self.second_teampreview_action  # type: ignore
             # now the second two pokemon are selected in teampreview
-            for i in opp_action:
+            for i in opp_action:  # type: ignore
                 mon = list(self.env.battle2.team.values())[i - 1]
                 mon._selected_in_teampreview = True
             self.second_teampreview_action = None
