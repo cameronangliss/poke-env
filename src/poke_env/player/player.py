@@ -670,12 +670,7 @@ class Player(ABC):
         :return: The random teampreview order.
         :rtype: str
         """
-        teampreview_order_len = (
-            4
-            if battle.format is not None and "vgc" in battle.format
-            else len(battle.team)
-        )
-        members = list(range(1, teampreview_order_len + 1))
+        members = list(range(1, len(battle.team) + 1))
         random.shuffle(members)
         for i in members:
             list(battle.team.values())[i - 1]._selected_in_teampreview = True
