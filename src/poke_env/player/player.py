@@ -687,6 +687,8 @@ class Player(ABC):
         """
         members = list(range(1, len(battle.team) + 1))
         random.shuffle(members)
+        if battle.format is not None and "vgc" in battle.format:
+            members = members[:4]
         for i in members:
             list(battle.team.values())[i - 1]._selected_in_teampreview = True
         return "/team " + "".join([str(c) for c in members])
