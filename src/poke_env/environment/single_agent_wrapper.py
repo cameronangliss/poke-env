@@ -41,9 +41,10 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
                 "Teampreview is only supported for VGC formats in SingleAgentWrapper."
             )
         elif self.second_teampreview_action is None:
-            teampreview_order_str = self.opponent.teampreview(self.env.battle2)
-            assert not isinstance(teampreview_order_str, Awaitable)
-            teampreview_order_list = [int(i) for i in teampreview_order_str[-4:]]
+            tp_order = self.opponent.teampreview(self.env.battle2)
+            assert not isinstance(tp_order, Awaitable)
+            assert len(tp_order) == 10, f"{tp_order} must specify 4 slots in VGC!"
+            teampreview_order_list = [int(i) for i in tp_order[-4:]]
             opp_action = np.array(teampreview_order_list[:2])  # type: ignore
             self.second_teampreview_action = np.array(teampreview_order_list[2:])
             # only the first two pokemon are selected in teampreview for now
