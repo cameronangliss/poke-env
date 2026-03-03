@@ -4,6 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from poke_env.battle import DoubleBattle, Effect, Field, Move, Pokemon, PokemonType
+from poke_env.calc.damage_calc_gen9 import calculate_damage
 
 
 def test_battle_request_parsing(example_doubles_request):
@@ -191,6 +192,100 @@ def test_to_showdown_target(example_doubles_request):
     assert battle.to_showdown_target(slackoff, mr_rime) == 0
     assert battle.to_showdown_target(slackoff, None) == 0
     assert battle.to_showdown_target(dynamax_psychic, klinklang) == -2
+
+
+def test_vgc_ots_speed_order_inference():
+    battle = DoubleBattle("tag", "username", MagicMock(), gen=9)
+    battle.player_role = "p1"
+    battle._format = "gen9vgc2024regg"
+    battle._opponent_packed_team = "ots"
+
+    battle.switch("p1a: Furret", "Furret, L50, F", "160/160")
+    battle.switch("p2a: Dragonite", "Dragonite, L50, M", "100/100")
+
+    our_mon = battle.get_pokemon("p1a: Furret")
+    our_mon.stats = {
+        "hp": 160,
+        "atk": 100,
+        "def": 100,
+        "spa": 80,
+        "spd": 90,
+        "spe": 130,
+    }
+
+    opponent = battle.get_pokemon("p2a: Dragonite")
+    opponent._ability = "innerfocus"
+    opponent._initialize_hidden_stat_candidates()
+    initial_range = opponent.stat_ranges["spe"]
+
+    battle.parse_message(["", "turn", "1"])
+    battle.parse_message(["", "move", "p2a: Dragonite", "Tackle", "p1a: Furret"])
+    battle.parse_message(["", "move", "p1a: Furret", "Tackle", "p2a: Dragonite"])
+
+    inferred_range = opponent.stat_ranges["spe"]
+    assert inferred_range[0] is not None
+    assert initial_range[0] is not None
+    assert inferred_range[0] >= our_mon.stats["spe"]
+    assert inferred_range[0] > initial_range[0]
+
+
+def test_vgc_ots_damage_inference_from_exact_hp():
+    battle = DoubleBattle("tag", "username", MagicMock(), gen=9)
+    battle.player_role = "p1"
+    battle._format = "gen9vgc2024regg"
+    battle._opponent_packed_team = "ots"
+
+    battle.switch("p1a: Furret", "Furret, L50, F", "200/200")
+    battle.switch("p2a: Dragonite", "Dragonite, L50, M", "100/100")
+
+    defender = battle.get_pokemon("p1a: Furret")
+    defender.stats = {
+        "hp": 200,
+        "atk": 100,
+        "def": 110,
+        "spa": 80,
+        "spd": 90,
+        "spe": 100,
+    }
+
+    attacker = battle.get_pokemon("p2a: Dragonite")
+    attacker._ability = "innerfocus"
+    attacker._initialize_hidden_stat_candidates()
+    initial_range = attacker.stat_ranges["atk"]
+
+    attack_value = attacker.stat_candidates("atk")[len(attacker.stat_candidates("atk")) // 2]
+    hidden_template = attacker.stats.copy()
+    attacker.stats = {
+        "hp": attacker.stat_candidates("hp")[0],
+        "atk": attack_value,
+        "def": attacker.stat_candidates("def")[0],
+        "spa": attacker.stat_candidates("spa")[0],
+        "spd": attacker.stat_candidates("spd")[0],
+        "spe": attacker.stat_candidates("spe")[0],
+    }
+    damage_range = calculate_damage(
+        "p2a: Dragonite", "p1a: Furret", Move("dragonclaw", gen=9), battle
+    )
+    attacker._stats = hidden_template
+    attacker._initialize_hidden_stat_candidates()
+
+    observed_damage = damage_range[0]
+    battle.parse_message(["", "turn", "1"])
+    battle.parse_message(["", "move", "p2a: Dragonite", "Dragon Claw", "p1a: Furret"])
+    battle.parse_message(
+        ["", "-damage", "p1a: Furret", f"{defender.max_hp - observed_damage}/{defender.max_hp}"]
+    )
+
+    inferred_range = attacker.stat_ranges["atk"]
+    assert inferred_range[0] is not None
+    assert inferred_range[1] is not None
+    assert initial_range[0] is not None
+    assert initial_range[1] is not None
+    assert inferred_range[0] <= attack_value <= inferred_range[1]
+    assert (
+        inferred_range[0] > initial_range[0]
+        or inferred_range[1] < initial_range[1]
+    )
 
 
 def test_end_illusion():

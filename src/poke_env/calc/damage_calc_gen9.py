@@ -1,10 +1,10 @@
 """This module defines a gen9 damage calculator"""
 
 import math
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional
 
 from poke_env.battle import (
-    Battle,
+    AbstractBattle,
     DoubleBattle,
     Effect,
     Field,
@@ -32,9 +32,9 @@ def calculate_damage(
     attacker_identifier: str,
     defender_identifier: str,
     move: Move,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     is_critical: bool = False,
-):
+) -> tuple[int, int]:
     """Return the possible damage range for a move.
 
     :param attacker_identifier: Identifier of the attacking Pokémon.
@@ -470,7 +470,7 @@ def calculate_base_power(
     attacker_identifier: str,
     defender_identifier: str,
     move: Move,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     has_ate_ability_type_change: bool,
 ):
     assert battle.player_role is not None and battle.opponent_role is not None
@@ -686,7 +686,7 @@ def calculate_base_power_mods(
     attacker_identifier: str,
     defender_identifier: str,
     move: Move,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     base_power: float,
     has_ate_ability_type_change: bool,
     attacker_first: bool,  # replaces turn_order
@@ -968,7 +968,7 @@ def calculate_attack(
     attacker_identifier: str,
     defender_identifier: str,
     move: Move,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     is_critical: bool = False,
 ):
     attacker = battle.get_pokemon(attacker_identifier)
@@ -1005,7 +1005,7 @@ def calculate_atk_mods(
     attacker_identifier: str,
     defender_identifier: str,
     move: Move,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
 ):
     assert battle.player_role is not None
     attacker = battle.get_pokemon(attacker_identifier)
@@ -1204,7 +1204,7 @@ def calculate_defense(
     attacker_identifier: str,
     defender_identifier: str,
     move: Move,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     is_critical: bool = False,
 ):
     attacker = battle.get_pokemon(attacker_identifier)
@@ -1253,7 +1253,7 @@ def calculate_defense(
 def calculate_def_mods(
     attacker_identifier: str,
     defender_identifier: str,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     hits_physical: bool = False,
 ):
     assert battle.player_role is not None
@@ -1380,7 +1380,7 @@ def calculate_base_damage(
     move: Move,
     move_type: Optional[PokemonType],
     move_target: Target,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     is_critical: bool = False,
 ):
     assert battle.player_role is not None
@@ -1437,7 +1437,7 @@ def calculate_final_mods(
     attacker_identifier: str,
     defender_identifier: str,
     move: Move,
-    battle: Union[Battle, DoubleBattle],
+    battle: AbstractBattle,
     type_effectiveness: float,
     flags: Dict[str, int],
     is_critical: bool = False,
@@ -1617,7 +1617,7 @@ def get_final_damage(
     is_burned: bool,
     stab_mod: int,
     final_mod: int,
-) -> float:
+) -> int:
     damage_amount = math.floor(base_amount * (85 + i) / 100) * 1.0
     if stab_mod != 4096:
         damage_amount = (damage_amount * stab_mod) / 4096

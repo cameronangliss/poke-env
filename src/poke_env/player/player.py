@@ -323,7 +323,14 @@ class Player(ABC):
                         f"{role}: {teambuilder_mon.nickname}",
                         details=preview_mon._last_details,
                     )
-                    mon._update_from_teambuilder(teambuilder_mon)
+                    mon._update_from_teambuilder(
+                        teambuilder_mon,
+                        exact_stats=not (
+                            role != battle.player_role
+                            and battle.gen == 9
+                            and "vgc" in self.format
+                        ),
+                    )
                 # only handle battle request after all open sheets are processed
                 if role == "p2":
                     await self._handle_battle_request(battle)

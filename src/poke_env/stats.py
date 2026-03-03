@@ -1,6 +1,7 @@
 """This module contains utility functions and objects related to stats."""
 
 import math
+from functools import lru_cache
 from typing import List
 
 from poke_env.data import GenData
@@ -135,3 +136,33 @@ def compute_raw_stats_dvs(
         raw_stats[i] = _raw_stat_dv(base_stats[i], dvs[i], level)
 
     return raw_stats
+
+
+@lru_cache(maxsize=None)
+def possible_raw_stat_values(
+    base: int, level: int, stat: str, is_shedinja: bool = False
+) -> tuple[int, ...]:
+    """Return all legal raw values for a stat at a given level.
+
+    Values are derived from all nature/EV/IV combinations that can affect the raw
+    stat in modern generations. EV values are stepped by four because the in-game
+    formula floors EV / 4 before applying the rest of the stat formula.
+    """
+
+    if stat == "hp":
+        if is_shedinja:
+            return (1,)
+        values = {
+            _raw_hp(base, ev, iv, level)
+            for ev in range(0, 253, 4)
+            for iv in range(32)
+        }
+    else:
+        values = {
+            _raw_stat(base, ev, iv, level, nature_multiplier)
+            for ev in range(0, 253, 4)
+            for iv in range(32)
+            for nature_multiplier in (0.9, 1.0, 1.1)
+        }
+
+    return tuple(sorted(values))

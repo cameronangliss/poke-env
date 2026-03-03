@@ -10,6 +10,7 @@ from poke_env.battle.move import Move
 from poke_env.battle.pokemon import Pokemon
 from poke_env.battle.pokemon_type import PokemonType
 from poke_env.battle.side_condition import STACKABLE_CONDITIONS, SideCondition
+from poke_env.battle.stat_inference import BattleStatInference
 from poke_env.battle.weather import Weather
 from poke_env.data import GenData, to_id_str
 from poke_env.data.replay_template import REPLAY_TEMPLATE
@@ -115,6 +116,7 @@ class AbstractBattle(ABC):
         "_teampreview",
         "_trapped",
         "_turn",
+        "_stat_inference",
         "_used_dynamax",
         "_used_mega_evolve",
         "_used_tera",
@@ -168,6 +170,7 @@ class AbstractBattle(ABC):
         self._opponent_rating: Optional[int] = None
         self._rating: Optional[int] = None
         self._won: Optional[bool] = None
+        self._stat_inference = BattleStatInference()
 
         # In game battle state attributes
         self._weather: Dict[Weather, int] = {}
@@ -457,14 +460,27 @@ class AbstractBattle(ABC):
         # preserve further usage of this event upstream
         event = split_message[:]
 
+        if event[1] == "-crit":
+            self._stat_inference.on_critical_hit(self, event[2])
+            return
         if event[1] in self.MESSAGES_TO_IGNORE:
             return
         elif event[1] in ["drag", "switch"]:
             pokemon, details, hp_status = event[2:5]
             self.switch(pokemon, details, hp_status)
         elif event[1] == "-damage":
+            target = event[2]
+            target_mon = self.get_pokemon(target)
+            previous_hp = target_mon.current_hp
+            previous_hp_scale = target_mon.max_hp
             pokemon, hp_status = event[2:4]
             self.get_pokemon(pokemon).damage(hp_status)
+            self._stat_inference.on_damage(
+                self,
+                event,
+                previous_hp=previous_hp,
+                previous_hp_scale=previous_hp_scale,
+            )
             self._check_damage_message_for_item(event)
             self._check_damage_message_for_ability(event)
         elif event[1] == "move":
@@ -627,10 +643,14 @@ class AbstractBattle(ABC):
                 mon.moved(
                     move, failed=failed, use=use, reveal=reveal, pressure=pressure
                 )
+            self._stat_inference.on_move(
+                self, pokemon, move, counts_for_order=use and not mon._dancing
+            )
         elif event[1] == "cant":
             pokemon, _ = event[2:4]
             self.get_pokemon(pokemon).cant_move()
         elif event[1] == "turn":
+            self._stat_inference.reset_turn()
             self.end_turn(int(event[2]))
         elif event[1] == "-heal":
             pokemon, hp_status = event[2:4]

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional, Union
 
 from poke_env.battle.effect import Effect
 from poke_env.battle.field import Field
@@ -11,7 +11,7 @@ from poke_env.battle.status import Status
 from poke_env.battle.target import Target
 from poke_env.battle.z_crystal import Z_CRYSTAL
 from poke_env.data import GenData, to_id_str
-from poke_env.stats import compute_raw_stats
+from poke_env.stats import compute_raw_stats, possible_raw_stat_values
 from poke_env.teambuilder.teambuilder_pokemon import TeambuilderPokemon
 
 
@@ -44,6 +44,7 @@ class Pokemon:
         "_protect_counter",
         "_shiny",
         "_stats",
+        "_stat_candidates",
         "_revealed",
         "_species",
         "_status",
@@ -121,6 +122,9 @@ class Pokemon:
             "spd": None,
             "spe": None,
         }
+        self._stat_candidates: Dict[str, Optional[set[int]]] = {
+            stat: None for stat in self._stats
+        }
         self._status: Optional[Status] = None
         self._status_counter: int = 0
         self._temporary_ability: Optional[str] = None
@@ -166,6 +170,51 @@ class Pokemon:
             move = Move(move_id=id_, raw_id=move_id, gen=self.gen)
             self.base_moves[id_] = move
         return self.base_moves[id_]
+
+    def _sync_stat_candidates_from_exact_stats(self):
+        for stat, value in self._stats.items():
+            self._stat_candidates[stat] = {value} if value is not None else None
+
+    def _initialize_hidden_stat_candidates(self):
+        is_shedinja = self.base_species == "shedinja"
+        for stat in self._stats:
+            self._stats[stat] = None
+            self._stat_candidates[stat] = set(
+                possible_raw_stat_values(
+                    self.base_stats[stat], self.level, stat, is_shedinja=is_shedinja
+                )
+            )
+
+    def _has_inferred_stat_candidates(self) -> bool:
+        return any(
+            candidates is not None and len(candidates) > 1
+            for candidates in self._stat_candidates.values()
+        )
+
+    def stat_candidates(self, stat: str) -> tuple[int, ...]:
+        candidates = self._stat_candidates.get(stat)
+        if candidates is not None:
+            return tuple(sorted(candidates))
+        value = self._stats.get(stat)
+        if value is not None:
+            return (value,)
+        return ()
+
+    def filter_stat_candidates(self, stat: str, predicate: Callable[[int], bool]) -> bool:
+        current = self._stat_candidates.get(stat)
+        if current is None:
+            value = self._stats.get(stat)
+            if value is None:
+                return False
+            current = {value}
+
+        filtered = {value for value in current if predicate(value)}
+        if not filtered:
+            return False
+
+        self._stat_candidates[stat] = filtered
+        self._stats[stat] = next(iter(filtered)) if len(filtered) == 1 else None
+        return filtered != current
 
     def boost(self, stat: str, amount: int):
         self._boosts[stat] += amount
@@ -407,6 +456,8 @@ class Pokemon:
         self._last_details = species
         species = species.split(",")[0]
         self._update_from_pokedex(species, store_species=False)
+        if self._has_inferred_stat_candidates():
+            self._initialize_hidden_stat_candidates()
 
     def identifies_as(self, ident: str) -> bool:
         return self.base_species == to_id_str(ident) or self.base_species in [
@@ -526,6 +577,7 @@ class Pokemon:
 
         if store:
             self._stats["hp"] = self._max_hp
+            self._stat_candidates["hp"] = {self._max_hp}
 
     def start_effect(self, effect_str: str, details: Optional[Any] = None):
         effect = Effect.from_showdown_message(effect_str)
@@ -649,6 +701,9 @@ class Pokemon:
         else:
             self._last_details = details
 
+        previous_species = self._species
+        previous_level = self._level
+
         if ", shiny" in details:
             self._shiny = True
             details = details.replace(", shiny", "")
@@ -689,6 +744,10 @@ class Pokemon:
 
         if species != self._species:
             self._update_from_pokedex(species)
+        if self._has_inferred_stat_candidates() and (
+            previous_species != self._species or previous_level != self._level
+        ):
+            self._initialize_hidden_stat_candidates()
 
     def update_from_request(self, request_pokemon: Dict[str, Any]):
         self._active = request_pokemon["active"]
@@ -721,8 +780,11 @@ class Pokemon:
         if "stats" in request_pokemon:
             for stat in request_pokemon["stats"]:
                 self._stats[stat] = request_pokemon["stats"][stat]
+            self._sync_stat_candidates_from_exact_stats()
 
-    def _update_from_teambuilder(self, tb: TeambuilderPokemon):
+    def _update_from_teambuilder(
+        self, tb: TeambuilderPokemon, exact_stats: bool = True
+    ):
         if tb.nickname is not None and tb.species is None:
             self._update_from_pokedex(tb.nickname)
         elif tb.nickname is not None and tb.species is not None:
@@ -749,7 +811,7 @@ class Pokemon:
             move = Move(Move.retrieve_id(move_str), gen=self.gen)
             self._moves[move.id] = move
 
-        if tb.level:
+        if tb.level and exact_stats:
             nature = tb.nature.lower() if tb.nature else "serious"
             self._stats = {}
             stats = compute_raw_stats(
@@ -762,6 +824,11 @@ class Pokemon:
             )
             for stat, val in zip(["hp", "atk", "def", "spa", "spd", "spe"], stats):
                 self._stats[stat] = val
+            self._sync_stat_candidates_from_exact_stats()
+        elif exact_stats:
+            self._sync_stat_candidates_from_exact_stats()
+        else:
+            self._initialize_hidden_stat_candidates()
 
     def was_illusioned(self, fields: Dict[Field, int]):
         self._current_hp = None
@@ -1230,6 +1297,27 @@ class Pokemon:
     @stats.setter
     def stats(self, stats: Dict[str, Optional[int]]):
         self._stats = stats
+        self._sync_stat_candidates_from_exact_stats()
+
+    @property
+    def stat_ranges(self) -> Dict[str, tuple[Optional[int], Optional[int]]]:
+        ranges: Dict[str, tuple[Optional[int], Optional[int]]] = {}
+        for stat, value in self._stats.items():
+            candidates = self._stat_candidates.get(stat)
+            if candidates is not None and len(candidates) > 0:
+                ranges[stat] = (min(candidates), max(candidates))
+            elif value is not None:
+                ranges[stat] = (value, value)
+            else:
+                ranges[stat] = (None, None)
+        return ranges
+
+    @property
+    def has_hidden_stats(self) -> bool:
+        return any(value is None for value in self._stats.values()) and any(
+            candidates is not None and len(candidates) > 0
+            for candidates in self._stat_candidates.values()
+        )
 
     @property
     def status(self) -> Optional[Status]:

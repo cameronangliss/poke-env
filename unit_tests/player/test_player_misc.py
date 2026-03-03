@@ -301,6 +301,11 @@ async def test_parse_showteam(packed_format_teams):
         ]
     )
     assert "p1: Iron Hands" in battle.opponent_team
+    opponent_mon = battle.opponent_team["p1: Iron Hands"]
+    assert all(value is None for value in opponent_mon.stats.values())
+    assert opponent_mon.stat_ranges["atk"][0] is not None
+    assert opponent_mon.stat_ranges["atk"][1] is not None
+    assert opponent_mon.stat_ranges["atk"][0] < opponent_mon.stat_ranges["atk"][1]
 
     mon = battle.get_pokemon("p1: donut", details="Iron Hands, L50")
     assert "p1: Iron Hands" not in battle.opponent_team
