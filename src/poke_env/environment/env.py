@@ -202,9 +202,9 @@ class PokeEnv(ParallelEnv[str, ObsType, ActionType]):
             varying per class.
         :param log_level: The player's logger level.
         :type log_level: int. Defaults to logging's default level.
-        :param save_replays: Whether to save battle replays. Can be a boolean, where
-            True will lead to replays being saved in a potentially new /replay folder,
-            or a string representing a folder where replays will be saved.
+        :param save_replays: Whether to capture battle replays. If True, replay data
+            is kept in memory only. To write replay files to disk as well, pass a
+            string representing the target folder.
         :type save_replays: bool or str
         :param server_configuration: Server configuration. Defaults to Localhost Server
             Configuration.

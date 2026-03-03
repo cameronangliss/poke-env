@@ -394,14 +394,10 @@ class AbstractBattle(ABC):
         self._fields[field] = self.turn
 
     def _finish_battle(self):
-        if self._save_replays:
-            if self._save_replays is True:
-                folder = "replays"
-            else:
-                folder = str(self._save_replays)
+        if isinstance(self._save_replays, str) and self._save_replays:
+            folder = self._save_replays
 
-            if not os.path.exists(folder):
-                os.mkdir(folder)
+            os.makedirs(folder, exist_ok=True)
 
             with open(
                 os.path.join(
