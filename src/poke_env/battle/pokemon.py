@@ -1300,16 +1300,15 @@ class Pokemon:
         self._sync_stat_candidates_from_exact_stats()
 
     @property
-    def stat_ranges(self) -> Dict[str, tuple[Optional[int], Optional[int]]]:
-        ranges: Dict[str, tuple[Optional[int], Optional[int]]] = {}
-        for stat, value in self._stats.items():
-            candidates = self._stat_candidates.get(stat)
-            if candidates is not None and len(candidates) > 0:
+    def stat_ranges(self) -> Dict[str, tuple[int, int]]:
+        ranges: Dict[str, tuple[int, int]] = {}
+        for stat, value in self.stats.items():
+            candidates = self._stat_candidates[stat]
+            if candidates is not None:
                 ranges[stat] = (min(candidates), max(candidates))
-            elif value is not None:
-                ranges[stat] = (value, value)
             else:
-                ranges[stat] = (None, None)
+                assert value is not None
+                ranges[stat] = (value, value)
         return ranges
 
     @property
