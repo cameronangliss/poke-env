@@ -247,8 +247,8 @@ def calculate_damage(
             move_type = PokemonType.NORMAL
             has_ate_ability_type_change = True
 
-    if move.id == "terablast" and attacker.is_terastallized:
-        move_type = attacker.type_1
+    if move.id == "terablast" and attacker.is_terastallized and attacker.tera_type is not None:
+        move_type = attacker.tera_type
 
     move_priority = move.priority
     if (attacker_ability == "triage" and "heal" in flags) or (
@@ -652,7 +652,11 @@ def calculate_base_power(
         base_power = 100 * math.floor((defender.current_hp_fraction * 4096))
         base_power = math.floor(math.floor((120 * base_power + 2048 - 1) / 4096) / 100)
     elif move.id == "terablast":
-        base_power = 100 if attacker.type_1 == PokemonType.STELLAR else 80
+        base_power = (
+            100
+            if attacker.is_terastallized and attacker.tera_type == PokemonType.STELLAR
+            else 80
+        )
 
     if base_power == 0:
         return 0
