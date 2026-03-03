@@ -11,7 +11,7 @@ from poke_env.battle.status import Status
 from poke_env.battle.target import Target
 from poke_env.battle.z_crystal import Z_CRYSTAL
 from poke_env.data import GenData, to_id_str
-from poke_env.stats import compute_raw_stats, possible_raw_stat_values
+from poke_env.stats import compute_raw_stats, possible_raw_stat_range
 from poke_env.teambuilder.teambuilder_pokemon import TeambuilderPokemon
 
 
@@ -44,7 +44,7 @@ class Pokemon:
         "_protect_counter",
         "_shiny",
         "_stats",
-        "_stat_candidates",
+        "_stat_bounds",
         "_revealed",
         "_species",
         "_status",
@@ -122,7 +122,7 @@ class Pokemon:
             "spd": None,
             "spe": None,
         }
-        self._stat_candidates: Dict[str, Optional[set[int]]] = {
+        self._stat_bounds: Dict[str, Optional[tuple[int, int]]] = {
             stat: None for stat in self._stats
         }
         self._status: Optional[Status] = None
@@ -171,50 +171,84 @@ class Pokemon:
             self.base_moves[id_] = move
         return self.base_moves[id_]
 
-    def _sync_stat_candidates_from_exact_stats(self):
+    def _sync_stat_bounds_from_exact_stats(self):
         for stat, value in self._stats.items():
-            self._stat_candidates[stat] = {value} if value is not None else None
+            self._stat_bounds[stat] = (value, value) if value is not None else None
 
-    def _initialize_hidden_stat_candidates(self):
+    def _initialize_hidden_stat_ranges(self):
         is_shedinja = self.base_species == "shedinja"
         for stat in self._stats:
             self._stats[stat] = None
-            self._stat_candidates[stat] = set(
-                possible_raw_stat_values(
-                    self.base_stats[stat], self.level, stat, is_shedinja=is_shedinja
-                )
+            self._stat_bounds[stat] = possible_raw_stat_range(
+                self.base_stats[stat], self.level, stat, is_shedinja=is_shedinja
             )
 
-    def _has_inferred_stat_candidates(self) -> bool:
+    def _initialize_hidden_stat_candidates(self):
+        self._initialize_hidden_stat_ranges()
+
+    def _has_inferred_stat_ranges(self) -> bool:
         return any(
-            candidates is not None and len(candidates) > 1
-            for candidates in self._stat_candidates.values()
+            bounds is not None and bounds[0] < bounds[1]
+            for bounds in self._stat_bounds.values()
         )
 
-    def stat_candidates(self, stat: str) -> tuple[int, ...]:
-        candidates = self._stat_candidates.get(stat)
-        if candidates is not None:
-            return tuple(sorted(candidates))
+    def _has_inferred_stat_candidates(self) -> bool:
+        return self._has_inferred_stat_ranges()
+
+    def stat_range(self, stat: str) -> Optional[tuple[int, int]]:
+        bounds = self._stat_bounds.get(stat)
+        if bounds is not None:
+            return bounds
         value = self._stats.get(stat)
         if value is not None:
-            return (value,)
+            return (value, value)
+        return None
+
+    def stat_candidates(self, stat: str) -> tuple[int, ...]:
+        bounds = self.stat_range(stat)
+        if bounds is not None:
+            return tuple(range(bounds[0], bounds[1] + 1))
         return ()
 
-    def filter_stat_candidates(self, stat: str, predicate: Callable[[int], bool]) -> bool:
-        current = self._stat_candidates.get(stat)
+    def clamp_stat_range(
+        self,
+        stat: str,
+        *,
+        minimum: Optional[int] = None,
+        maximum: Optional[int] = None,
+    ) -> bool:
+        current = self.stat_range(stat)
         if current is None:
-            value = self._stats.get(stat)
-            if value is None:
-                return False
-            current = {value}
-
-        filtered = {value for value in current if predicate(value)}
-        if not filtered:
             return False
 
-        self._stat_candidates[stat] = filtered
-        self._stats[stat] = next(iter(filtered)) if len(filtered) == 1 else None
-        return filtered != current
+        lower, upper = current
+        if minimum is not None:
+            lower = max(lower, minimum)
+        if maximum is not None:
+            upper = min(upper, maximum)
+        if lower > upper:
+            return False
+
+        updated = (lower, upper)
+        self._stat_bounds[stat] = updated
+        self._stats[stat] = lower if lower == upper else None
+        return updated != current
+
+    def set_stat_range(self, stat: str, lower: int, upper: int) -> bool:
+        return self.clamp_stat_range(stat, minimum=lower, maximum=upper)
+
+    def filter_stat_candidates(self, stat: str, predicate: Callable[[int], bool]) -> bool:
+        bounds = self.stat_range(stat)
+        if bounds is None:
+            return False
+
+        valid_values = [value for value in range(bounds[0], bounds[1] + 1) if predicate(value)]
+        if not valid_values:
+            return False
+
+        self._stat_bounds[stat] = (valid_values[0], valid_values[-1])
+        self._stats[stat] = valid_values[0] if len(valid_values) == 1 else None
+        return (valid_values[0], valid_values[-1]) != bounds
 
     def boost(self, stat: str, amount: int):
         self._boosts[stat] += amount
@@ -456,8 +490,8 @@ class Pokemon:
         self._last_details = species
         species = species.split(",")[0]
         self._update_from_pokedex(species, store_species=False)
-        if self._has_inferred_stat_candidates():
-            self._initialize_hidden_stat_candidates()
+        if self._has_inferred_stat_ranges():
+            self._initialize_hidden_stat_ranges()
 
     def identifies_as(self, ident: str) -> bool:
         return self.base_species == to_id_str(ident) or self.base_species in [
@@ -577,7 +611,7 @@ class Pokemon:
 
         if store:
             self._stats["hp"] = self._max_hp
-            self._stat_candidates["hp"] = {self._max_hp}
+            self._stat_bounds["hp"] = (self._max_hp, self._max_hp)
 
     def start_effect(self, effect_str: str, details: Optional[Any] = None):
         effect = Effect.from_showdown_message(effect_str)
@@ -744,10 +778,10 @@ class Pokemon:
 
         if species != self._species:
             self._update_from_pokedex(species)
-        if self._has_inferred_stat_candidates() and (
+        if self._has_inferred_stat_ranges() and (
             previous_species != self._species or previous_level != self._level
         ):
-            self._initialize_hidden_stat_candidates()
+            self._initialize_hidden_stat_ranges()
 
     def update_from_request(self, request_pokemon: Dict[str, Any]):
         self._active = request_pokemon["active"]
@@ -780,7 +814,7 @@ class Pokemon:
         if "stats" in request_pokemon:
             for stat in request_pokemon["stats"]:
                 self._stats[stat] = request_pokemon["stats"][stat]
-            self._sync_stat_candidates_from_exact_stats()
+            self._sync_stat_bounds_from_exact_stats()
 
     def _update_from_teambuilder(
         self, tb: TeambuilderPokemon, exact_stats: bool = True
@@ -824,11 +858,11 @@ class Pokemon:
             )
             for stat, val in zip(["hp", "atk", "def", "spa", "spd", "spe"], stats):
                 self._stats[stat] = val
-            self._sync_stat_candidates_from_exact_stats()
+            self._sync_stat_bounds_from_exact_stats()
         elif exact_stats:
-            self._sync_stat_candidates_from_exact_stats()
+            self._sync_stat_bounds_from_exact_stats()
         else:
-            self._initialize_hidden_stat_candidates()
+            self._initialize_hidden_stat_ranges()
 
     def was_illusioned(self, fields: Dict[Field, int]):
         self._current_hp = None
@@ -1297,15 +1331,15 @@ class Pokemon:
     @stats.setter
     def stats(self, stats: Dict[str, Optional[int]]):
         self._stats = stats
-        self._sync_stat_candidates_from_exact_stats()
+        self._sync_stat_bounds_from_exact_stats()
 
     @property
     def stat_ranges(self) -> Dict[str, tuple[int, int]]:
         ranges: Dict[str, tuple[int, int]] = {}
         for stat, value in self.stats.items():
-            candidates = self._stat_candidates[stat]
-            if candidates is not None:
-                ranges[stat] = (min(candidates), max(candidates))
+            bounds = self._stat_bounds[stat]
+            if bounds is not None:
+                ranges[stat] = bounds
             else:
                 assert value is not None
                 ranges[stat] = (value, value)
@@ -1313,9 +1347,9 @@ class Pokemon:
 
     @property
     def has_hidden_stats(self) -> bool:
-        return any(value is None for value in self._stats.values()) and any(
-            candidates is not None and len(candidates) > 0
-            for candidates in self._stat_candidates.values()
+        return any(
+            value is None and self._stat_bounds[stat] is not None
+            for stat, value in self._stats.items()
         )
 
     @property

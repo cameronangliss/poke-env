@@ -182,76 +182,36 @@ class BattleStatInference:
         ):
             return
 
-        # Replay-only validation can leave both sides with hidden stat candidates
-        # because OTS showteam data omits EVs, IVs, and nature. Exhaustively
-        # crossing attacker, HP, and defense candidates in that setting is both
-        # expensive and underconstrained, while live battle inference typically has
-        # one side exact from requests/teambuilder data.
+        # Replay-only validation can leave both sides with hidden stat ranges.
+        # We keep the live-battle path cheap by only tightening one hidden side
+        # at a time.
         if attack_source.has_hidden_stats and defender.has_hidden_stats:
             return
 
-        attack_values = attack_source.stat_candidates(attack_stat)
-        hp_values = defender.stat_candidates("hp")
-        defense_values = defender.stat_candidates(defense_stat)
-        if not attack_values or not hp_values or not defense_values:
-            return
-
-        valid_attack_values: set[int] = set()
-        valid_hp_values: set[int] = set()
-        valid_defense_values: set[int] = set()
         critical = event[2] in self._current_move.crit_targets
-
-        for attack_value in attack_values:
-            for hp_value in hp_values:
-                for defense_value in defense_values:
-                    attacker_overrides = {}
-                    defender_overrides = {"hp": hp_value, defense_stat: defense_value}
-
-                    if attack_source_identifier == self._current_move.attacker_identifier:
-                        attacker_overrides[attack_stat] = attack_value
-                    else:
-                        defender_overrides[attack_stat] = attack_value
-
-                    damage_range = _calculate_damage_with_overrides(
-                        battle,
-                        self._current_move.attacker_identifier,
-                        event[2],
-                        move,
-                        critical,
-                        attacker_overrides,
-                        defender_overrides,
-                    )
-                    if damage_range is None:
-                        continue
-
-                    if defender.has_hidden_stats:
-                        observed = _displayed_damage_matches(
-                            previous_hp,
-                            previous_hp_scale,
-                            defender.current_hp,
-                            defender.max_hp,
-                            hp_value,
-                            damage_range[0],
-                            damage_range[1],
-                        )
-                    else:
-                        observed_damage = previous_hp - defender.current_hp
-                        observed = damage_range[0] <= observed_damage <= damage_range[1]
-
-                    if observed:
-                        valid_attack_values.add(attack_value)
-                        valid_hp_values.add(hp_value)
-                        valid_defense_values.add(defense_value)
-
-        if attack_source.has_hidden_stats and valid_attack_values:
-            attack_source.filter_stat_candidates(
-                attack_stat, lambda value: value in valid_attack_values
+        if attack_source.has_hidden_stats:
+            _tighten_attack_stat_from_exact_damage(
+                battle=battle,
+                attacker_identifier=self._current_move.attacker_identifier,
+                defender_identifier=event[2],
+                move=move,
+                critical=critical,
+                attack_source_identifier=attack_source_identifier,
+                attack_stat=attack_stat,
+                observed_damage=previous_hp - defender.current_hp,
             )
-        if defender.has_hidden_stats and valid_hp_values:
-            defender.filter_stat_candidates("hp", lambda value: value in valid_hp_values)
-        if defender.has_hidden_stats and valid_defense_values:
-            defender.filter_stat_candidates(
-                defense_stat, lambda value: value in valid_defense_values
+        elif defender.has_hidden_stats:
+            _tighten_hidden_defender_bounds_from_displayed_damage(
+                battle=battle,
+                attacker_identifier=self._current_move.attacker_identifier,
+                defender_identifier=event[2],
+                move=move,
+                critical=critical,
+                defense_stat=defense_stat,
+                previous_hp=previous_hp,
+                previous_hp_scale=previous_hp_scale,
+                current_hp=defender.current_hp,
+                current_hp_scale=defender.max_hp,
             )
 
 
@@ -271,18 +231,19 @@ def _apply_speed_order_constraint(
 ):
     first = battle.get_pokemon(first_identifier)
     second = battle.get_pokemon(second_identifier)
-    first_values = first.stat_candidates("spe")
-    second_values = second.stat_candidates("spe")
-    if not first_values or not second_values:
+    first_bounds = first.stat_range("spe")
+    second_bounds = second.stat_range("spe")
+    if first_bounds is None or second_bounds is None:
         return
 
     trick_room = Field.TRICK_ROOM in battle.fields
     first_effective = {
-        raw_speed: _effective_speed(first, battle, raw_speed) for raw_speed in first_values
+        raw_speed: _effective_speed(first, battle, raw_speed)
+        for raw_speed in range(first_bounds[0], first_bounds[1] + 1)
     }
     second_effective = {
         raw_speed: _effective_speed(second, battle, raw_speed)
-        for raw_speed in second_values
+        for raw_speed in range(second_bounds[0], second_bounds[1] + 1)
     }
 
     if trick_room:
@@ -306,12 +267,12 @@ def _apply_speed_order_constraint(
             raw_speed
             for raw_speed, effective_speed in second_effective.items()
             if any(other >= effective_speed for other in first_effective.values())
-        }
+    }
 
     if first.has_hidden_stats and first_valid:
-        first.filter_stat_candidates("spe", lambda value: value in first_valid)
+        first.set_stat_range("spe", min(first_valid), max(first_valid))
     if second.has_hidden_stats and second_valid:
-        second.filter_stat_candidates("spe", lambda value: value in second_valid)
+        second.set_stat_range("spe", min(second_valid), max(second_valid))
 
 
 def _attack_stat(move: Move) -> str:
@@ -465,10 +426,10 @@ def _apply_stat_overrides(mon: Pokemon, overrides: dict[str, int]) -> dict[str, 
             if stat in overrides:
                 mon._stats[stat] = overrides[stat]
             else:
-                candidates = mon.stat_candidates(stat)
-                if not candidates:
+                bounds = mon.stat_range(stat)
+                if bounds is None:
                     continue
-                mon._stats[stat] = candidates[0]
+                mon._stats[stat] = bounds[0]
     return previous
 
 
@@ -515,3 +476,124 @@ def _hp_display_band(
     if lower > upper:
         return None
     return lower, upper
+
+
+def _tighten_attack_stat_from_exact_damage(
+    *,
+    battle: AbstractBattle,
+    attacker_identifier: str,
+    defender_identifier: str,
+    move: Move,
+    critical: bool,
+    attack_source_identifier: str,
+    attack_stat: str,
+    observed_damage: int,
+):
+    attack_source = battle.get_pokemon(attack_source_identifier)
+    attack_bounds = attack_source.stat_range(attack_stat)
+    if attack_bounds is None:
+        return
+
+    valid_attack_values: list[int] = []
+    for attack_value in range(attack_bounds[0], attack_bounds[1] + 1):
+        attacker_overrides: dict[str, int] = {}
+        defender_overrides: dict[str, int] = {}
+        if attack_source_identifier == attacker_identifier:
+            attacker_overrides[attack_stat] = attack_value
+        else:
+            defender_overrides[attack_stat] = attack_value
+
+        damage_range = _calculate_damage_with_overrides(
+            battle,
+            attacker_identifier,
+            defender_identifier,
+            move,
+            critical,
+            attacker_overrides,
+            defender_overrides,
+        )
+        if damage_range is None:
+            continue
+        if damage_range[0] <= observed_damage <= damage_range[1]:
+            valid_attack_values.append(attack_value)
+
+    if valid_attack_values:
+        attack_source.set_stat_range(
+            attack_stat, valid_attack_values[0], valid_attack_values[-1]
+        )
+
+
+def _tighten_hidden_defender_bounds_from_displayed_damage(
+    *,
+    battle: AbstractBattle,
+    attacker_identifier: str,
+    defender_identifier: str,
+    move: Move,
+    critical: bool,
+    defense_stat: str,
+    previous_hp: int,
+    previous_hp_scale: int,
+    current_hp: int,
+    current_hp_scale: int,
+):
+    defender = battle.get_pokemon(defender_identifier)
+    hp_bounds = defender.stat_range("hp")
+    defense_bounds = defender.stat_range(defense_stat)
+    if hp_bounds is None or defense_bounds is None:
+        return
+
+    damage_by_defense: dict[int, tuple[int, int]] = {}
+    for defense_value in range(defense_bounds[0], defense_bounds[1] + 1):
+        damage_range = _calculate_damage_with_overrides(
+            battle,
+            attacker_identifier,
+            defender_identifier,
+            move,
+            critical,
+            {},
+            {defense_stat: defense_value},
+        )
+        if damage_range is not None:
+            damage_by_defense[defense_value] = damage_range
+
+    if not damage_by_defense:
+        return
+
+    valid_defense_values: list[int] = []
+    for defense_value, damage_range in damage_by_defense.items():
+        if any(
+            _displayed_damage_matches(
+                previous_hp,
+                previous_hp_scale,
+                current_hp,
+                current_hp_scale,
+                hp_value,
+                damage_range[0],
+                damage_range[1],
+            )
+            for hp_value in range(hp_bounds[0], hp_bounds[1] + 1)
+        ):
+            valid_defense_values.append(defense_value)
+
+    valid_hp_values: list[int] = []
+    for hp_value in range(hp_bounds[0], hp_bounds[1] + 1):
+        if any(
+            _displayed_damage_matches(
+                previous_hp,
+                previous_hp_scale,
+                current_hp,
+                current_hp_scale,
+                hp_value,
+                damage_range[0],
+                damage_range[1],
+            )
+            for damage_range in damage_by_defense.values()
+        ):
+            valid_hp_values.append(hp_value)
+
+    if valid_defense_values:
+        defender.set_stat_range(
+            defense_stat, valid_defense_values[0], valid_defense_values[-1]
+        )
+    if valid_hp_values:
+        defender.set_stat_range("hp", valid_hp_values[0], valid_hp_values[-1])

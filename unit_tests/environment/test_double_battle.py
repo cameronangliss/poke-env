@@ -253,15 +253,20 @@ def test_vgc_ots_damage_inference_from_exact_hp():
     attacker._initialize_hidden_stat_candidates()
     initial_range = attacker.stat_ranges["atk"]
 
-    attack_value = attacker.stat_candidates("atk")[len(attacker.stat_candidates("atk")) // 2]
+    attack_value = (initial_range[0] + initial_range[1]) // 2
+    hp_range = attacker.stat_ranges["hp"]
+    def_range = attacker.stat_ranges["def"]
+    spa_range = attacker.stat_ranges["spa"]
+    spd_range = attacker.stat_ranges["spd"]
+    spe_range = attacker.stat_ranges["spe"]
     hidden_template = attacker.stats.copy()
     attacker.stats = {
-        "hp": attacker.stat_candidates("hp")[0],
+        "hp": hp_range[0],
         "atk": attack_value,
-        "def": attacker.stat_candidates("def")[0],
-        "spa": attacker.stat_candidates("spa")[0],
-        "spd": attacker.stat_candidates("spd")[0],
-        "spe": attacker.stat_candidates("spe")[0],
+        "def": def_range[0],
+        "spa": spa_range[0],
+        "spd": spd_range[0],
+        "spe": spe_range[0],
     }
     damage_range = calculate_damage(
         "p2a: Dragonite", "p1a: Furret", Move("dragonclaw", gen=9), battle

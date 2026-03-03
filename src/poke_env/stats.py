@@ -166,3 +166,13 @@ def possible_raw_stat_values(
         }
 
     return tuple(sorted(values))
+
+
+@lru_cache(maxsize=None)
+def possible_raw_stat_range(
+    base: int, level: int, stat: str, is_shedinja: bool = False
+) -> tuple[int, int]:
+    values = possible_raw_stat_values(
+        base, level, stat, is_shedinja=is_shedinja
+    )
+    return values[0], values[-1]
