@@ -49,6 +49,25 @@ SPEED_DEPENDENT_DAMAGE_MOVES = {
 }
 SPECIAL_ORDER_ITEMS = {"custapberry", "fullincense", "laggingtail", "quickclaw"}
 SPECIAL_ORDER_ABILITIES = {"stall"}
+TURN_WIDE_SPECIAL_ORDER_MOVES = {"afteryou", "quash"}
+UNSUPPORTED_DAMAGE_INFERENCE_MOVES = {
+    "beatup",
+    "crushgrip",
+    "endeavor",
+    "finalgambit",
+    "lastrespects",
+    "naturesmadness",
+    "nightshade",
+    "ragefist",
+    "ruination",
+    "seismictoss",
+    "shedtail",
+    "substitute",
+    "superfang",
+    "terastarstorm",
+    "wringout",
+}
+FULL_HP_DEFENSIVE_ABILITIES = {"multiscale", "shadowshield", "terashell"}
 
 
 @dataclass
@@ -65,10 +84,12 @@ class BattleStatInference:
     def __init__(self):
         self._current_move: Optional[_MoveContext] = None
         self._turn_actions: list[_MoveContext] = []
+        self._turn_has_special_order_override = False
 
     def reset_turn(self):
         self._current_move = None
         self._turn_actions = []
+        self._turn_has_special_order_override = False
 
     def on_move(
         self,
@@ -92,9 +113,16 @@ class BattleStatInference:
             move_id=move.id,
             priority=_effective_priority(attacker, move),
             counts_for_order=counts_for_order,
-            special_order=_has_special_move_order(attacker, move),
+            special_order=(
+                self._turn_has_special_order_override
+                or _has_special_move_order(attacker, move)
+            ),
         )
         self._current_move = context
+
+        if move.id in TURN_WIDE_SPECIAL_ORDER_MOVES:
+            self._turn_has_special_order_override = True
+            context.special_order = True
 
         if not counts_for_order or context.priority is None or context.special_order:
             return
@@ -131,7 +159,9 @@ class BattleStatInference:
         except KeyError:
             return
 
-        if move.n_hit != (1, 1):
+        if _damage_inference_is_unsupported(
+            battle, self._current_move.attacker_identifier, event[2], move, previous_hp, previous_hp_scale
+        ):
             return
 
         attacker = battle.get_pokemon(self._current_move.attacker_identifier)
@@ -150,6 +180,14 @@ class BattleStatInference:
         if not (
             attack_source.has_hidden_stats or defender.has_hidden_stats
         ):
+            return
+
+        # Replay-only validation can leave both sides with hidden stat candidates
+        # because OTS showteam data omits EVs, IVs, and nature. Exhaustively
+        # crossing attacker, HP, and defense candidates in that setting is both
+        # expensive and underconstrained, while live battle inference typically has
+        # one side exact from requests/teambuilder data.
+        if attack_source.has_hidden_stats and defender.has_hidden_stats:
             return
 
         attack_values = attack_source.stat_candidates(attack_stat)
@@ -370,6 +408,29 @@ def _damage_depends_on_hidden_speed(attacker: Pokemon, move: Move) -> bool:
     return move.id in SPEED_DEPENDENT_DAMAGE_MOVES or attacker.ability == "analytic"
 
 
+def _damage_inference_is_unsupported(
+    battle: AbstractBattle,
+    attacker_identifier: str,
+    defender_identifier: str,
+    move: Move,
+    previous_hp: int,
+    previous_hp_scale: int,
+) -> bool:
+    defender = battle.get_pokemon(defender_identifier)
+    if move.category == MoveCategory.STATUS or move.base_power <= 0:
+        return True
+    if move.id in UNSUPPORTED_DAMAGE_INFERENCE_MOVES:
+        return True
+    if move.n_hit != (1, 1):
+        return True
+    if defender.current_hp == 1:
+        return True
+    return (
+        previous_hp == previous_hp_scale
+        and defender.ability in FULL_HP_DEFENSIVE_ABILITIES
+    )
+
+
 def _calculate_damage_with_overrides(
     battle: AbstractBattle,
     attacker_identifier: str,
@@ -432,6 +493,8 @@ def _displayed_damage_matches(
     new_band = _hp_display_band(current_hp, current_scale, actual_max_hp)
     if old_band is None or new_band is None:
         return False
+    if current_hp == 0:
+        return old_band[0] <= damage_max
 
     min_pre_hp = max(old_band[0], new_band[0] + damage_min)
     max_pre_hp = min(old_band[1], new_band[1] + damage_max)

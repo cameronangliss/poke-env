@@ -737,12 +737,16 @@ class AbstractBattle(ABC):
         elif event[1] == "-activate":
             target, effect = event[2:4]
             if target and effect.replace("move: ", "") == "Skill Swap":
-                if "[of] " in event[6]:
+                if len(event) < 5:
+                    return
+                if len(event) > 6 and "[of] " in event[6]:
                     actor = event[6].replace("[of] ", "")
                     abilities = event[4:6]
-                else:
+                elif len(event) >= 7:
                     actor = event[4]
                     abilities = event[5:7]
+                else:
+                    return
                 abilities = [
                     d.replace("[ability] ", "").replace("[ability2] ", "")
                     for d in abilities

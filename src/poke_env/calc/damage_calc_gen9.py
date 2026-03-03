@@ -1090,7 +1090,7 @@ def calculate_atk_mods(
     elif attacker.ability == "stakeout" and not abilities_suppressed:
         atk_mods.append(8192)
     elif (attacker.ability == "waterbubble" and move.type == PokemonType.WATER) or (
-        attacker.ability in ["hugemount", "purepower"]
+        attacker.ability in ["hugepower", "purepower"]
         and move.category == MoveCategory.PHYSICAL
     ):
         atk_mods.append(8192)
