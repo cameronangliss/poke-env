@@ -136,7 +136,9 @@ class DoubleBattle(AbstractBattle):
         self._reviving = any(
             [mon.get("reviving") for mon in request["side"]["pokemon"]]
         )
-        self._commanding = [mon.get("commanding") for mon in request["side"]["pokemon"]]
+        self._commanding = any(
+            [mon.get("commanding") for mon in request["side"]["pokemon"]]
+        )
 
         self._last_request = request
 
@@ -228,7 +230,10 @@ class DoubleBattle(AbstractBattle):
                     self._maybe_trapped[active_pokemon_number] = True
 
         for i in range(2):
-            if not self.trapped[i] and not self.commanding[i]:
+            if not self.trapped[i]:
+                active_mon = self.active_pokemon[i]
+                if active_mon is not None and Effect.COMMANDER in active_mon.effects:
+                    continue
                 for pkmn_json in side["pokemon"]:
                     pokemon = self.team[pkmn_json["ident"]]
                     if self.reviving:
