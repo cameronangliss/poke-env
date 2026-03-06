@@ -77,6 +77,7 @@ class AbstractBattle(ABC):
         "_can_mega_evolve",
         "_can_tera",
         "_can_z_move",
+        "_commanding",
         "_dynamax_turn",
         "_fields",
         "_finished",
@@ -175,6 +176,7 @@ class AbstractBattle(ABC):
         self._opponent_side_conditions: Dict[SideCondition, int] = {}  # set()
         self._side_conditions: Dict[SideCondition, int] = {}  # set()
         self._reviving: bool = False
+        self._commanding: list[bool] = [False, False]
         self._opponent_used_mega_evolve = False
         self._opponent_used_z_move = False
         self._opponent_used_dynamax = False
@@ -1212,6 +1214,13 @@ class AbstractBattle(ABC):
     @abstractmethod
     def can_z_move(self) -> Any:
         pass
+
+    def commanding(self) -> list[bool]:
+        """
+        :return: A list of booleans indicating whether each active pokemon is commanding
+        :rtype: list[bool]
+        """
+        return self._commanding
 
     @property
     def dynamax_turns_left(self) -> Optional[int]:
