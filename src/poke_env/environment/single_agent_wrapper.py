@@ -34,7 +34,10 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
             opp_order = self.opponent.choose_move(self.env.battle2)
             assert not isinstance(opp_order, Awaitable)
             opp_action = self.env.order_to_action(
-                opp_order, self.env.battle2, fake=self.env.fake, strict=self.env.strict
+                opp_order,
+                self.env.battle2,
+                fake=self.env._fake,
+                strict=self.env._strict,
             )
         elif self.env.battle2.format is None or "vgc" not in self.env.battle2.format:
             raise NotImplementedError(
@@ -85,3 +88,6 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
 
     def close(self):
         self.env.close()
+
+    def set_opp_policy(self, policy_file: str, device):
+        self.opponent.set_policy(policy_file, device)  # type: ignore

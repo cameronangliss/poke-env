@@ -20,6 +20,7 @@ from poke_env.data.replay_template import REPLAY_TEMPLATE
 class AbstractBattle(ABC):
     MESSAGES_TO_IGNORE = {
         "-anim",
+        "badge",
         "-block",
         "-burst",
         "-center",
@@ -27,6 +28,7 @@ class AbstractBattle(ABC):
         "-crit",
         "-fail",
         "-fieldactivate",
+        "hidelines",
         "-hint",
         "-hitcount",
         "-miss",
@@ -1096,10 +1098,11 @@ class AbstractBattle(ABC):
                     else:
                         raise RuntimeError(f"Invalid player message: {event}")
                 return
-            if username == self._player_username:
-                self._player_role = player
-            else:
-                self._player_role = "p1" if player == "p2" else "p2"
+            if self.player_role is None:
+                if username == self._player_username:
+                    self._player_role = player
+                else:
+                    self._player_role = "p1" if player == "p2" else "p2"
             if rating is not None:
                 return self._players.append(
                     {
@@ -1215,9 +1218,11 @@ class AbstractBattle(ABC):
         )
 
     def _register_teampreview_pokemon(self, player: str, details: str):
+        mon = Pokemon(details=details, gen=self.gen)
         if player != self._player_role:
-            mon = Pokemon(details=details, gen=self.gen)
             self._teampreview_opponent_team.append(mon)
+        elif mon.name not in [p.name for p in self.teampreview_team]:
+            self._teampreview_team.append(mon)
 
     def side_end(self, side: str, condition_str: str):
         if side[:2] == self._player_role:
