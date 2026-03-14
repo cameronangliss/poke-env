@@ -304,6 +304,10 @@ class Player(ABC):
                 teambuilder_team = Teambuilder.parse_packed_team(
                     "|".join(split_message[3:])
                 )
+                if role == battle.player_role:
+                    battle._teambuilder_team = teambuilder_team
+                else:
+                    battle._teambuilder_opponent_team = teambuilder_team
                 teampreview_team = (
                     battle.teampreview_team
                     if role == battle.player_role

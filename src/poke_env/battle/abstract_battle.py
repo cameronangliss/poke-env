@@ -15,6 +15,7 @@ from poke_env.battle.side_condition import STACKABLE_CONDITIONS, SideCondition
 from poke_env.battle.weather import Weather
 from poke_env.data import GenData, to_id_str
 from poke_env.data.replay_template import REPLAY_TEMPLATE
+from poke_env.teambuilder import TeambuilderPokemon
 
 
 class AbstractBattle(ABC):
@@ -113,6 +114,8 @@ class AbstractBattle(ABC):
         "_side_conditions",
         "_team_size",
         "_team",
+        "_teambuilder_team",
+        "_teambuilder_opponent_team",
         "_teampreview_team",
         "_teampreview_opponent_team",
         "_teampreview",
@@ -146,6 +149,8 @@ class AbstractBattle(ABC):
         self._player_username: str = username
         self._players: List[Dict[str, str]] = []
         self._replay_data: List[List[str]] = []
+        self._teambuilder_team: List[TeambuilderPokemon] | None = None
+        self._teambuilder_opponent_team: List[TeambuilderPokemon] | None = None
         self._save_replays: Union[str, bool] = save_replays
         self._team_size: Dict[str, int] = {}
         self._teampreview: bool = False
