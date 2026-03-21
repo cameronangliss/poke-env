@@ -15,11 +15,13 @@ from poke_env.battle.side_condition import STACKABLE_CONDITIONS, SideCondition
 from poke_env.battle.weather import Weather
 from poke_env.data import GenData, to_id_str
 from poke_env.data.replay_template import REPLAY_TEMPLATE
+from poke_env.teambuilder import TeambuilderPokemon
 
 
 class AbstractBattle(ABC):
     MESSAGES_TO_IGNORE = {
         "-anim",
+        "badge",
         "-block",
         "-burst",
         "-center",
@@ -27,6 +29,7 @@ class AbstractBattle(ABC):
         "-crit",
         "-fail",
         "-fieldactivate",
+        "hidelines",
         "-hint",
         "-hitcount",
         "-miss",
@@ -111,6 +114,8 @@ class AbstractBattle(ABC):
         "_side_conditions",
         "_team_size",
         "_team",
+        "_teambuilder_team",
+        "_teambuilder_opponent_team",
         "_teampreview_team",
         "_teampreview_opponent_team",
         "_teampreview",
@@ -144,6 +149,8 @@ class AbstractBattle(ABC):
         self._player_username: str = username
         self._players: List[Dict[str, str]] = []
         self._replay_data: List[List[str]] = []
+        self._teambuilder_team: List[TeambuilderPokemon] | None = None
+        self._teambuilder_opponent_team: List[TeambuilderPokemon] | None = None
         self._save_replays: Union[str, bool] = save_replays
         self._team_size: Dict[str, int] = {}
         self._teampreview: bool = False
@@ -1099,10 +1106,11 @@ class AbstractBattle(ABC):
                     else:
                         raise RuntimeError(f"Invalid player message: {event}")
                 return
-            if username == self._player_username:
-                self._player_role = player
-            else:
-                self._player_role = "p1" if player == "p2" else "p2"
+            if self.player_role is None:
+                if username == self._player_username:
+                    self._player_role = player
+                else:
+                    self._player_role = "p1" if player == "p2" else "p2"
             if rating is not None:
                 return self._players.append(
                     {
@@ -1218,9 +1226,11 @@ class AbstractBattle(ABC):
         )
 
     def _register_teampreview_pokemon(self, player: str, details: str):
+        mon = Pokemon(details=details, gen=self.gen)
         if player != self._player_role:
-            mon = Pokemon(details=details, gen=self.gen)
             self._teampreview_opponent_team.append(mon)
+        elif mon.name not in [p.name for p in self.teampreview_team]:
+            self._teampreview_team.append(mon)
 
     def side_end(self, side: str, condition_str: str):
         if side[:2] == self._player_role:

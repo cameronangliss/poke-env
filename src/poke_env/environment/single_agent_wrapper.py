@@ -88,3 +88,6 @@ class SingleAgentWrapper(Env[ObsType, ActionType]):
 
     def close(self):
         self.env.close()
+
+    def set_opp_policy(self, policy_file: str, device):
+        self.opponent.set_policy(policy_file, device)  # type: ignore
