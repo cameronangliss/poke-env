@@ -304,7 +304,7 @@ class PokeEnv(ParallelEnv[str, Dict[str, Any], ActionType]):
             team=team,
             choose_on_teampreview=choose_on_teampreview,
         )
-        self.agents: List[str] = []
+        self.agents = [self.agent1.username, self.agent2.username]
         self.possible_agents = [self.agent1.username, self.agent2.username]
         self.battle1: Optional[AbstractBattle] = None
         self.battle2: Optional[AbstractBattle] = None
@@ -464,8 +464,6 @@ class PokeEnv(ParallelEnv[str, Dict[str, Any], ActionType]):
         term2, trunc2 = self.calc_term_trunc(battle2)
         terminated = {self.agents[0]: term1, self.agents[1]: term2}
         truncated = {self.agents[0]: trunc1, self.agents[1]: trunc2}
-        if battle1.finished:
-            self.agents = []
         return observations, reward, terminated, truncated, self.get_additional_info()
 
     def reset(

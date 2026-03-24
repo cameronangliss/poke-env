@@ -291,6 +291,9 @@ class Player(ABC):
             elif split_message[1] == "request":
                 if split_message[2]:
                     request = orjson.loads(split_message[2])
+                    if "teamPreview" in request and request["teamPreview"]:
+                        for p in request["side"]["pokemon"]:
+                            p["active"] = False
                     battle.parse_request(request, self._strict_battle_tracking)
                     if battle._wait:
                         self._waiting.set()
@@ -301,6 +304,10 @@ class Player(ABC):
                 teambuilder_team = Teambuilder.parse_packed_team(
                     "|".join(split_message[3:])
                 )
+                if role == battle.player_role:
+                    battle._teambuilder_team = teambuilder_team
+                else:
+                    battle._teambuilder_opponent_team = teambuilder_team
                 teampreview_team = (
                     battle.teampreview_team
                     if role == battle.player_role
