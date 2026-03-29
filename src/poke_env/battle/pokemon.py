@@ -20,7 +20,6 @@ class Pokemon:
         "_ability",
         "_active",
         "_active_turns",
-        "_active",
         "_base_stats",
         "_boosts",
         "_current_hp",
@@ -418,7 +417,6 @@ class Pokemon:
         self._clear_effects()
 
     def forme_change(self, species: str):
-        self._last_details = species
         species = species.split(",")[0]
         self._update_from_pokedex(species, store_species=False)
 
@@ -572,10 +570,8 @@ class Pokemon:
 
     def switch_in(self, details: Optional[str] = None):
         self._active = True
-
         if details:
             self._update_from_details(details)
-
         self._revealed = True
 
     def switch_out(self, fields: Dict[Field, int]):
@@ -938,8 +934,7 @@ class Pokemon:
     def base_types(self) -> List[PokemonType]:
         """
         :return: The pokemon's non-Tera types, accounting for temporary type changes.
-            Unlike `types`, this ignores Terastallization. Unlike `original_types`,
-            this includes temporary type overrides (e.g. Transform/typechange effects).
+            Unlike `types`, this ignores Terastallization.
         :rtype: List[PokemonType]
         """
         if len(self._temporary_types) > 0:
@@ -1091,6 +1086,17 @@ class Pokemon:
         self._item = to_id_str(item) if item is not None else None
 
     @property
+    def last_move(self) -> Optional[Move]:
+        """
+        :return: The last move used by this pokemon, or None.
+        :rtype: Move | None
+        """
+        for move in self.moves.values():
+            if move.is_last_used:
+                return move
+        return None
+
+    @property
     def level(self) -> int:
         """
         :return: The pokemon's level.
@@ -1151,13 +1157,6 @@ class Pokemon:
                 return dex_entry["name"]
             else:
                 return dex_entry["baseSpecies"]
-
-    @property
-    def original_types(self) -> List[PokemonType]:
-        if self._type_2 is None:
-            return [self._type_1]
-        else:
-            return [self._type_1, self._type_2]
 
     @property
     def pokeball(self) -> Optional[str]:
