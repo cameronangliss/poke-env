@@ -11,4 +11,5 @@ This page lists detailed examples demonstrating how to use this package. They ar
     quickstart
     using_a_custom_teambuilder
     connecting_to_showdown_and_challenging_humans
+    tracking_observations
     reinforcement_learning
