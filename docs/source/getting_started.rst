@@ -8,7 +8,8 @@ This section guides you through installing ``poke-env`` and setting up a Pokémo
 Installing ``poke-env``
 =======================
 
-Ensure Python 3.10 or later is installed. Dependencies listed `here <https://github.com/hsahovic/poke-env/blob/master/pyproject.toml>`__ will be installed automatically.
+Ensure Python 3.10 or later is installed. Package dependencies are installed
+automatically.
 
 .. code-block:: bash
 
@@ -34,6 +35,34 @@ Though ``poke-env`` can interact with a `public server <https://play.pokemonshow
 
 .. warning:: The ``--no-security`` flag disables crucial security features, use with caution. This flag facilitates AI training by removing rate limiting and authentication requirements.
 
+Your First Local Battle
+=======================
+
+Once your local server is running, you can verify your setup by running two
+built-in players against each other. ``RandomPlayer`` uses the default
+localhost server configuration, so no explicit account or server setup is
+required for this example.
+
+.. code-block:: python
+
+    import asyncio
+
+    from poke_env.player import RandomPlayer
+
+
+    async def main():
+        player_1 = RandomPlayer(max_concurrent_battles=1)
+        player_2 = RandomPlayer(max_concurrent_battles=1)
+
+        await player_1.battle_against(player_2, n_battles=1)
+
+        print(f"Finished battles: {player_1.n_finished_battles}")
+        print(f"Player 1 wins: {player_1.n_won_battles}")
+
+
+    if __name__ == "__main__":
+        asyncio.run(main())
+
 Creating Agents
 ===============
 
@@ -41,33 +70,45 @@ Agents in ``poke-env`` are instances of the ``Player`` class. Explore the follow
 
 - Quickstart: :doc:`examples/quickstart`
 - Custom team builder: :doc:`examples/using_a_custom_teambuilder`
-- RL agent: :ref:`reinforcement_learning`
+- Reinforcement learning with action masking: :ref:`reinforcement_learning`
+- Action mapping and strict/fake conversion modes: :ref:`action_mapping_and_strict_modes`
+- Strict battle-state validation: :ref:`strict_battle_tracking`
+- Replay export: :ref:`saving_replays`
 
 Configuring Showdown Players
 ============================
 
-``Player`` instances require player configurations tied to Showdown accounts. Auto-generated configurations suffice for servers without authentication. For authenticated servers or custom configurations, utilize the ``account_configuration`` argument with ``AccountConfiguration`` objects.
+``Player`` instances require account configurations tied to Showdown accounts.
+Auto-generated configurations are enough for local or unauthenticated servers.
+For authenticated servers or custom setups, pass an
+``AccountConfiguration`` object explicitly.
 
 .. code-block:: python
 
     from poke_env import AccountConfiguration
+    from poke_env.player import RandomPlayer
 
     # No authentication required
     my_account_config = AccountConfiguration("my_username", None)
-    player = Player(account_configuration=my_account_config)
+    player = RandomPlayer(account_configuration=my_account_config)
 
     # Authentication required
     my_account_config = AccountConfiguration("my_username", "super-secret-password")
-    player = Player(account_configuration=my_account_config, server_configuration=...)
+    player = RandomPlayer(
+        account_configuration=my_account_config,
+        server_configuration=...,
+    )
 
     # Auto-generated configuration for local use
-    player = Player()
+    player = RandomPlayer()
 
 
 Connecting Bots to Showdown
 ===========================
 
-``Player`` instances require a account configuration to connect to a Pokémon Showdown server. You can configure the connection to local servers, the official Showdown server, or other custom servers.
+``Player`` instances require an account configuration to connect to a Pokémon
+Showdown server. You can configure the connection to local servers, the
+official Showdown server, or other custom servers.
 
 Local Servers
 -------------
@@ -81,9 +122,13 @@ To connect to the official Pokémon Showdown server using ``ShowdownServerConfig
 
 .. code-block:: python
 
-    from poke_env import Player, ShowdownServerConfiguration, AccountConfiguration
+    from poke_env import AccountConfiguration, ShowdownServerConfiguration
+    from poke_env.player import RandomPlayer
     account_config = AccountConfiguration("my_username", "super-secret-password")
-    player = Player(server_configuration=ShowdownServerConfiguration, account_configuration=account_config)
+    player = RandomPlayer(
+        server_configuration=ShowdownServerConfiguration,
+        account_configuration=account_config,
+    )
 
 
 Custom Servers
@@ -93,6 +138,15 @@ For custom servers, create a ``ServerConfiguration`` object with the server URL 
 
 .. code-block:: python
 
-    from poke_env import Player, ServerConfiguration
-    custom_config = ServerConfiguration("ws://my.custom.host:5432/showdown/websocket", "authentication-endpoint.com/action.php?")
-    player = Player(server_configuration=custom_config)
+    from poke_env import ServerConfiguration
+    from poke_env.player import RandomPlayer
+    custom_config = ServerConfiguration(
+        "ws://my.custom.host:5432/showdown/websocket",
+        "https://my.custom.host/action.php?",
+    )
+    player = RandomPlayer(server_configuration=custom_config)
+
+What Next
+=========
+
+- Browse task-oriented guides: :doc:`examples/index`

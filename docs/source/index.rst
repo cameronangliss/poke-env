@@ -1,14 +1,24 @@
 .. _index:
 
-#############################################################################
-Poke-env: A Python Interface for Training Reinforcement Learning Pokémon Bots
-#############################################################################
+###########################################################
+Poke-env: A Python Interface for Pokémon Showdown Bots
+###########################################################
 
-Poke-env provides an environment for engaging in `Pokémon Showdown <https://pokemonshowdown.com/>`__ battles with a focus on reinforcement learning. 
+Poke-env is a Python library for building scripted agents, self-play
+experiments, and reinforcement learning workflows on
+`Pokémon Showdown <https://pokemonshowdown.com/>`__.
 
-It boasts a straightforward API for handling Pokémon, Battles, Moves, and other battle-centric objects, alongside a `Farama Gymnasium <https://gymnasium.farama.org/>`__ interface for training agents.
+It provides a battle-centric API around Players, Battles, Pokémon, and Moves,
+alongside a `Farama Gymnasium <https://gymnasium.farama.org/>`__ interface for
+reinforcement learning.
 
 .. attention:: While poke-env aims to support all Pokémon generations, it was primarily developed with the latest generations in mind. If you discover any missing or incorrect functionalities for earlier generations, please `open an issue <https://github.com/hsahovic/poke-env/issues>`__ to help improve the library.
+
+Start Here
+==========
+
+- New to the library: :doc:`getting_started`
+- Looking for runnable guides: :doc:`examples/index`
 
 .. toctree::
    :maxdepth: 2
@@ -45,12 +55,12 @@ On top of the main modules dedicated to building Pokémon Showdown bots, Poke-en
 Acknowledgements
 ================
 
-Originated from a group project at `École Polytechnique <https://www.polytechnique.edu/>`_. Inspired partially by `showdown-battle-bot <https://github.com/Synedh/showdown-battle-bot>`__ and built upon `Pokemon Showdown <https://github.com/Zarel/Pokemon-Showdown>`__.
+Originated from a group project at `École Polytechnique <https://www.polytechnique.edu/>`_. Inspired partially by `showdown-battle-bot <https://github.com/Synedh/showdown-battle-bot>`__ and built upon `Pokemon Showdown <https://github.com/smogon/pokemon-showdown>`__.
 
 Data
 ====
 
-Data adapted from `Pokemon Showdown <https://github.com/Zarel/Pokemon-Showdown>`__ and team data sourced from `Smogon forums' RMT section <https://www.smogon.com/>`__.
+Data adapted from `Pokemon Showdown <https://github.com/smogon/pokemon-showdown>`__ and team data sourced from `Smogon forums' RMT section <https://www.smogon.com/>`__.
 
 License
 =======
