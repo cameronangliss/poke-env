@@ -289,6 +289,9 @@ class Player(ABC):
             elif split_message[1] == "request":
                 if split_message[2]:
                     request = orjson.loads(split_message[2])
+                    if "teamPreview" in request and request["teamPreview"]:
+                        for p in request["side"]["pokemon"]:
+                            p["active"] = False
                     battle.parse_request(request, self._strict_battle_tracking)
                     if not (battle.teampreview and self.accept_open_team_sheet):
                         await self._handle_battle_request(battle)
