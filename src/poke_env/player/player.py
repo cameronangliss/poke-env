@@ -188,10 +188,10 @@ class Player(ABC):
         :rtype: AbstractBattle
         """
         # We check that the battle has the correct format
-        format_matches = split_message[1] == self.format or (
-            "bo3" in self.format and self.format.startswith(split_message[1])
-        )
-        if format_matches and len(split_message) >= 2:
+        if (
+            self.format in [split_message[1], f"{split_message[1]}bo3"]
+            and len(split_message) >= 2
+        ):
             # Battle initialisation
             battle_tag = "-".join(split_message)[1:]
 
@@ -223,10 +223,8 @@ class Player(ABC):
                         for tb_mon in self._team.team
                     ]
 
-                if "bo3" in self.format:
+                if "bo3" not in self.format:
                     # In bo3, counting is handled by the game room, not sub-battles
-                    self._battles[battle_tag] = battle
-                else:
                     await self._battle_count_queue.put(None)
                     if battle_tag in self._battles:
                         await self._battle_count_queue.get()
@@ -234,7 +232,7 @@ class Player(ABC):
                     async with self._battle_start_condition:
                         self._battle_semaphore.release()
                         self._battle_start_condition.notify_all()
-                        self._battles[battle_tag] = battle
+                self._battles[battle_tag] = battle
 
                 if self._start_timer_on_battle_start:
                     await self.ps_client.send_message("/timer on", battle.battle_tag)
@@ -348,11 +346,11 @@ class Player(ABC):
                         for p in request["side"]["pokemon"]:
                             p["active"] = False
                     battle.parse_request(request, self._strict_battle_tracking)
-                    if not (
-                        battle.teampreview
-                        and self.accept_open_team_sheet
-                        and "bo3" not in self.format
+                    if "bo3" in self.format or not (
+                        battle.teampreview and self.accept_open_team_sheet
                     ):
+                        # if we want OTS in non-bo3 game, we need to wait for showteam
+                        # message to be received before making teampreview decision
                         await self._handle_battle_request(battle)
             elif split_message[1] == "showteam":
                 role = split_message[2]
@@ -376,13 +374,13 @@ class Player(ABC):
                         details=preview_mon._last_details,
                     )
                     mon._update_from_teambuilder(teambuilder_mon)
-                # only handle battle request after all open sheets are processed
                 if (
-                    role == "p2"
+                    "bo3" not in self.format
                     and self.accept_open_team_sheet
-                    and "bo3" not in self.format
+                    and role == "p2"
                 ):
-                    # bo3 battles force players to accept OTS
+                    # in non-bo3 games, we need to wait for both showteam messages
+                    # to be received before making our teampreview decision
                     await self._handle_battle_request(battle)
             elif split_message[1] == "win" or split_message[1] == "tie":
                 if split_message[1] == "win":
