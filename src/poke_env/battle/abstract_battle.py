@@ -83,6 +83,7 @@ class AbstractBattle(ABC):
         "_finished",
         "_force_switch",
         "_format",
+        "_game_number",
         "_gen",
         "in_team_preview",
         "_last_request",
@@ -106,6 +107,7 @@ class AbstractBattle(ABC):
         "rules",
         "_reviving",
         "_save_replays",
+        "_set_id",
         "_side_conditions",
         "_team_size",
         "_team",
@@ -144,6 +146,8 @@ class AbstractBattle(ABC):
         self._replay_data: List[List[str]] = []
         self._save_replays: Union[str, bool] = save_replays
         self._team_size: Dict[str, int] = {}
+        self._set_id: Optional[str] = None
+        self._game_number: Optional[int] = None
         self._teampreview: bool = False
         self._teampreview_team: List[Pokemon] = []
         self._teampreview_opponent_team: List[Pokemon] = []
@@ -1419,6 +1423,15 @@ class AbstractBattle(ABC):
         return self._format
 
     @property
+    def game_number(self) -> Optional[int]:
+        """
+        :return: The 1-indexed position of this battle within its best-of set, or
+            ``None`` if this battle is not part of a best-of set.
+        :rtype: Optional[int]
+        """
+        return self._game_number
+
+    @property
     def gen(self) -> int:
         """
         :return: The generation of the battle; will be the parameter with which the
@@ -1631,6 +1644,16 @@ class AbstractBattle(ABC):
         :rtype: int, optional
         """
         return self._opponent_rating
+
+    @property
+    def set_id(self) -> Optional[str]:
+        """
+        :return: An identifier shared by all battles belonging to the same best-of
+            set, or ``None`` if this battle is not part of a best-of set. Useful as a
+            key for grouping sibling battles (see :attr:`Player.bestof_history`).
+        :rtype: Optional[str]
+        """
+        return self._set_id
 
     @property
     def side_conditions(self) -> Dict[SideCondition, int]:

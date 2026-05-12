@@ -129,6 +129,7 @@ class Player(ABC):
 
         self._battles: Dict[str, AbstractBattle] = {}
         self._bestof_games: Set[str] = set()
+        self._bestof_history: Dict[str, List[AbstractBattle]] = {}
         self._battle_semaphore: Semaphore = create_in_poke_loop(Semaphore, loop, 0)
 
         self._battle_start_condition: Condition = create_in_poke_loop(Condition, loop)
@@ -221,6 +222,10 @@ class Player(ABC):
                     ]
 
                 if self.format_is_bestof:
+                    base, _, idx = battle_tag.rpartition("-")
+                    if idx.isdigit():
+                        battle._set_id = base
+                        battle._game_number = int(idx) + 1
                     # In bo3, counting is handled by the game room, not sub-battles
                     self._battles[battle_tag] = battle
                 else:
@@ -376,6 +381,8 @@ class Player(ABC):
                 if not self.format_is_bestof:
                     await self._battle_count_queue.get()
                     self._battle_count_queue.task_done()
+                if battle.set_id is not None:
+                    self._bestof_history.setdefault(battle.set_id, []).append(battle)
                 self._battle_finished_callback(battle)
                 if not self.format_is_bestof:
                     async with self._battle_end_condition:
@@ -681,6 +688,7 @@ class Player(ABC):
                 )
         self._battles = {}
         self._bestof_games = set()
+        self._bestof_history = {}
 
     def teampreview(self, battle: AbstractBattle) -> Union[str, Awaitable[str]]:
         """Returns a teampreview order for the given battle.
@@ -765,6 +773,16 @@ class Player(ABC):
     @property
     def battles(self) -> Dict[str, AbstractBattle]:
         return self._battles
+
+    @property
+    def bestof_history(self) -> Dict[str, List[AbstractBattle]]:
+        """
+        :return: Finished battles grouped by ``set_id``. Each value is the chronological
+            list of completed games in that best-of set. Empty for any player that has
+            not played a best-of format. Keys correspond to :attr:`AbstractBattle.set_id`.
+        :rtype: Dict[str, List[AbstractBattle]]
+        """
+        return self._bestof_history
 
     @property
     def format(self) -> str:

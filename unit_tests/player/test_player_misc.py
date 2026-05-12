@@ -364,3 +364,77 @@ def test_player_save_replay_raises_on_unknown_battle_tag(tmp_path):
 
     with pytest.raises(KeyError, match="Unknown battle_tag"):
         player.save_replay("battle-gen9randombattle-missing", tmp_path / "missing.html")
+
+
+@pytest.mark.asyncio
+async def test_bestof_set_id_and_game_number_set_from_battle_tag():
+    player = SimplePlayer(battle_format="gen9vgc2024reggbo3", start_listening=False)
+    player.ps_client.send_message = AsyncMock()
+
+    battle = await player._create_battle(
+        [">battle", "gen9vgc2024reggbo3", "abc123", "0"]
+    )
+
+    assert battle.set_id == "battle-gen9vgc2024reggbo3-abc123"
+    assert battle.game_number == 1
+
+    battle_g2 = await player._create_battle(
+        [">battle", "gen9vgc2024reggbo3", "abc123", "1"]
+    )
+    assert battle_g2.set_id == "battle-gen9vgc2024reggbo3-abc123"
+    assert battle_g2.game_number == 2
+
+
+@pytest.mark.asyncio
+async def test_non_bestof_battle_has_no_set_id():
+    player = SimplePlayer(battle_format="gen9randombattle", start_listening=False)
+
+    battle = await player._create_battle(["", "gen9randombattle", "123"])
+
+    assert battle.set_id is None
+    assert battle.game_number is None
+
+
+@pytest.mark.asyncio
+async def test_bestof_history_populates_on_battle_finish():
+    player = SimplePlayer(battle_format="gen9vgc2024reggbo3", start_listening=False)
+    player.ps_client.send_message = AsyncMock()
+
+    battle_g1 = await player._create_battle(
+        [">battle", "gen9vgc2024reggbo3", "xyz", "0"]
+    )
+    battle_g2 = await player._create_battle(
+        [">battle", "gen9vgc2024reggbo3", "xyz", "1"]
+    )
+
+    set_id = battle_g1.set_id
+    assert set_id is not None
+    assert player.bestof_history == {}
+
+    await player._handle_battle_message(
+        [[f">{battle_g1.battle_tag}"], ["", "win", player.username]]
+    )
+
+    assert player.bestof_history[set_id] == [battle_g1]
+
+    await player._handle_battle_message(
+        [[f">{battle_g2.battle_tag}"], ["", "win", player.username]]
+    )
+
+    assert player.bestof_history[set_id] == [battle_g1, battle_g2]
+
+
+def test_reset_battles_clears_bestof_history():
+    player = SimplePlayer(start_listening=False)
+    finished_battle = Battle(
+        "battle-gen9vgc2024reggbo3-1-0", player.username, player.logger, gen=9
+    )
+    finished_battle._finished = True
+    finished_battle._set_id = "battle-gen9vgc2024reggbo3-1"
+    finished_battle._game_number = 1
+    player._battles[finished_battle.battle_tag] = finished_battle
+    player._bestof_history[finished_battle.set_id] = [finished_battle]
+
+    player.reset_battles()
+
+    assert player.bestof_history == {}
