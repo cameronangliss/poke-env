@@ -113,6 +113,15 @@ async def test_handle_message():
     )
     client.log_in = AsyncMock()
 
+    # Inline cleanup in updateuser handler sends messages via the websocket
+    # and waits on a CRQ barrier. Replace send_message with a stub that also
+    # satisfies the barrier when the userdetails query goes out.
+    async def fake_send(message, room="", message_2=None):
+        if message.startswith("/cmd userdetails") and client._login_barrier:
+            client._login_barrier.set_result(None)
+
+    client.send_message = fake_send
+
     await client._handle_message("|challstr")
     client.log_in.assert_called_once()
 

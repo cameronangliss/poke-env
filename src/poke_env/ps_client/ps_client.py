@@ -86,6 +86,7 @@ class PSClient:
         """
         self._active_tasks: Set[asyncio.Task] = set()
         self._battle_locks: dict[str, asyncio.Lock] = {}
+        self._login_barrier: Optional[asyncio.Future] = None
         self._open_timeout = open_timeout
         self._ping_interval = ping_interval
         self._ping_timeout = ping_timeout
@@ -168,6 +169,9 @@ class PSClient:
             if split_messages[0][0].startswith((">battle", ">game")):
                 # Battle update or best-of room
                 battle_tag = split_messages[0][0][1:]
+                if not self.logged_in.is_set():
+                    await self.send_message(f"/leave {battle_tag}")
+                    return
                 if battle_tag not in self._battle_locks:
                     self._battle_locks[battle_tag] = asyncio.Lock()
                 async with self._battle_locks[battle_tag]:
@@ -182,6 +186,10 @@ class PSClient:
                     " " + self.username,
                     " " + self.username + "@!",
                 ]:
+                    self._login_barrier = asyncio.get_event_loop().create_future()
+                    await self.send_message(f"/cmd userdetails {self.username}")
+                    await self._login_barrier
+                    self._login_barrier = None
                     # Confirms successful login
                     self.logged_in.set()
                 elif not split_messages[0][2].startswith(" Guest "):
@@ -192,6 +200,9 @@ class PSClient:
                         self.username,
                         split_messages[0][2],
                     )
+            elif split_messages[0][1] == "queryresponse":
+                if self._login_barrier is not None and not self._login_barrier.done():
+                    self._login_barrier.set_result(None)
             elif "updatechallenges" in split_messages[0][1]:
                 # Contain information about current challenge
                 await self._update_challenges(split_messages[0])  # type: ignore
